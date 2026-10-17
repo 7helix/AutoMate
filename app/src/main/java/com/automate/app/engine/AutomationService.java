@@ -17,13 +17,13 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
-import android.net.wifi.WifiInfo;
-import android.net.wifi.WifiManager;
+import android.media.AudioManager;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.os.SystemClock;
 
 import androidx.annotation.NonNull;
@@ -74,6 +74,32 @@ public class AutomationService extends Service {
                 case Intent.ACTION_USER_PRESENT:
                     RuleEngine.fireMatching(c, TriggerType.DEVICE_UNLOCKED, null, "Phone unlocked");
                     break;
+                case Intent.ACTION_SCREEN_ON:
+                    RuleEngine.fireMatching(c, TriggerType.SCREEN_ON, null, "Screen turned on");
+                    break;
+                case Intent.ACTION_SCREEN_OFF:
+                    RuleEngine.fireMatching(c, TriggerType.SCREEN_OFF, null, "Screen turned off");
+                    break;
+                case Intent.ACTION_AIRPLANE_MODE_CHANGED: {
+                    boolean on = i.getBooleanExtra("state", false);
+                    RuleEngine.fireMatching(c, on ? TriggerType.AIRPLANE_ON : TriggerType.AIRPLANE_OFF, null,
+                            on ? "Airplane mode turned on" : "Airplane mode turned off");
+                    break;
+                }
+                case AudioManager.ACTION_HEADSET_PLUG: {
+                    if (!warm()) break; // the system re-sends the last state when we register
+                    boolean plugged = i.getIntExtra("state", 0) == 1;
+                    RuleEngine.fireMatching(c, plugged ? TriggerType.HEADPHONES_PLUGGED : TriggerType.HEADPHONES_UNPLUGGED, null,
+                            plugged ? "Headphones plugged in" : "Headphones unplugged");
+                    break;
+                }
+                case PowerManager.ACTION_POWER_SAVE_MODE_CHANGED: {
+                    PowerManager pm = (PowerManager) c.getSystemService(Context.POWER_SERVICE);
+                    boolean on = pm != null && pm.isPowerSaveMode();
+                    RuleEngine.fireMatching(c, on ? TriggerType.POWER_SAVER_ON : TriggerType.POWER_SAVER_OFF, null,
+                            on ? "Battery saver turned on" : "Battery saver turned off");
+                    break;
+                }
                 case BluetoothDevice.ACTION_ACL_CONNECTED:
                     onBluetooth(i, true);
                     break;
@@ -104,6 +130,7 @@ public class AutomationService extends Service {
             registered = true;
         }
         refreshLocation();
+        EngineWidget.refresh(this);
         return START_STICKY;
     }
 
@@ -123,6 +150,7 @@ public class AutomationService extends Service {
         }
         stopLocation();
         registered = false;
+        EngineWidget.refresh(this);
         super.onDestroy();
     }
 
@@ -173,6 +201,11 @@ public class AutomationService extends Service {
         f.addAction(Intent.ACTION_POWER_CONNECTED);
         f.addAction(Intent.ACTION_POWER_DISCONNECTED);
         f.addAction(Intent.ACTION_USER_PRESENT);
+        f.addAction(Intent.ACTION_SCREEN_ON);
+        f.addAction(Intent.ACTION_SCREEN_OFF);
+        f.addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED);
+        f.addAction(AudioManager.ACTION_HEADSET_PLUG);
+        f.addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED);
         f.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
         f.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
         ContextCompat.registerReceiver(this, receiver, f, ContextCompat.RECEIVER_NOT_EXPORTED);
@@ -208,17 +241,8 @@ public class AutomationService extends Service {
         return SystemClock.elapsedRealtime() - startedAt > 3000;
     }
 
-    @SuppressWarnings("deprecation")
     private String currentSsid() {
-        try {
-            WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-            WifiInfo info = wm.getConnectionInfo();
-            if (info == null || info.getSSID() == null) return null;
-            String s = info.getSSID().replace("\"", "");
-            return "<unknown ssid>".equals(s) ? null : s;
-        } catch (RuntimeException e) {
-            return null;
-        }
+        return ConditionChecker.ssid(this);
     }
 
     private void onBattery(Intent i) {

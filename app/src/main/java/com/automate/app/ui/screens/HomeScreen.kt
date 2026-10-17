@@ -29,10 +29,12 @@ import androidx.compose.ui.unit.sp
 import com.automate.app.AppViewModel
 import com.automate.app.data.LogStore
 import com.automate.app.data.Templates
+import com.automate.app.data.tr
 import com.automate.app.ui.AnimatedCounter
 import com.automate.app.ui.AppCard
 import com.automate.app.ui.GlowCard
 import com.automate.app.ui.PulsingPower
+import com.automate.app.ui.popIn
 import com.automate.app.ui.SectionTitle
 import com.automate.app.ui.enterAnim
 import com.automate.app.ui.rememberHaptics
@@ -107,7 +109,7 @@ fun HomeScreen(vm: AppViewModel, onEdit: (String) -> Unit, onTab: (String) -> Un
         item { Box(Modifier.enterAnim(3)) { SectionTitle("Quick start") } }
         item {
             LazyRow(Modifier.enterAnim(3), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                itemsIndexed(Templates.all) { i, t ->
+                itemsIndexed(Templates.all.take(10)) { i, t ->
                     AppCard(Modifier.width(172.dp), onClick = { tap(); onEdit("tpl$i") }) {
                         Text(t.emoji, fontSize = 30.sp)
                         Spacer(Modifier.height(8.dp))
@@ -121,13 +123,32 @@ fun HomeScreen(vm: AppViewModel, onEdit: (String) -> Unit, onTab: (String) -> Un
             }
         }
 
+        item { Box(Modifier.enterAnim(4)) { SectionTitle("Explore") } }
+        itemsIndexed(
+            listOf(
+                Triple("stats", "📊", "Stats"), Triple("gallery", "🧩", "Gallery"),
+                Triple("control", "🎛️", "Phone control"), Triple("backup", "💾", "Backup")
+            ).chunked(2)
+        ) { row, group ->
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                group.forEachIndexed { i, (route, emoji, label) ->
+                    AppCard(Modifier.weight(1f).popIn(row * 2 + i), onClick = { tap(); onTab(route) }) {
+                        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(emoji, fontSize = 28.sp)
+                            Text(tr(label), style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                }
+            }
+        }
+
         item {
             AppCard(Modifier.fillMaxWidth().enterAnim(4), onClick = { tap(); onTab("social") }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("🌐", fontSize = 30.sp)
+                    Text(tr("🌐"), fontSize = 30.sp)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Social hub", fontWeight = FontWeight.SemiBold)
+                        Text(tr("Social hub"), fontWeight = FontWeight.SemiBold)
                         Text(
                             "Open your apps, share AutoMate, social recipes.",
                             style = MaterialTheme.typography.bodySmall,
@@ -141,10 +162,10 @@ fun HomeScreen(vm: AppViewModel, onEdit: (String) -> Unit, onTab: (String) -> Un
         item {
             AppCard(Modifier.fillMaxWidth().enterAnim(4), onClick = { tap(); onTab("learn") }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("📘", fontSize = 30.sp)
+                    Text(tr("📘"), fontSize = 30.sp)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Learn & limitations", fontWeight = FontWeight.SemiBold)
+                        Text(tr("Learn & limitations"), fontWeight = FontWeight.SemiBold)
                         Text(
                             "Guides, what Android won't allow, and the rules of use.",
                             style = MaterialTheme.typography.bodySmall,
@@ -158,7 +179,7 @@ fun HomeScreen(vm: AppViewModel, onEdit: (String) -> Unit, onTab: (String) -> Un
         item {
             Row(Modifier.fillMaxWidth().enterAnim(4), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) { SectionTitle("Recent activity") }
-                TextButton(onClick = { onTab("logs") }) { Text("See all") }
+                TextButton(onClick = { onTab("logs") }) { Text(tr("See all")) }
             }
         }
         if (logs.isEmpty()) {

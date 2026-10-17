@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.automate.app.ui.AppCard
+import com.automate.app.data.tr
 import com.automate.app.ui.enterAnim
 
 @Composable
@@ -34,14 +35,14 @@ fun AboutScreen(onBack: () -> Unit, onOpenDoc: (String) -> Unit) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") }
-            Text("About", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(tr("About"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
         Column(
             Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             AppCard(Modifier.fillMaxWidth().enterAnim(0)) {
-                Text("⚡ AutoMate", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                Text(tr("⚡ AutoMate"), fontSize = 28.sp, fontWeight = FontWeight.Bold)
                 Text("Version $version", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
                     "Automate anything, anywhere — with simple “when → then” rules.",
@@ -49,7 +50,7 @@ fun AboutScreen(onBack: () -> Unit, onOpenDoc: (String) -> Unit) {
                 )
             }
             AppCard(Modifier.fillMaxWidth().enterAnim(1)) {
-                Text("How it works", fontWeight = FontWeight.Bold)
+                Text(tr("How it works"), fontWeight = FontWeight.Bold)
                 Text(
                     "1. Create a rule with a trigger and an action.\n" +
                         "2. Turn the engine on from Home.\n" +
@@ -62,7 +63,7 @@ fun AboutScreen(onBack: () -> Unit, onOpenDoc: (String) -> Unit) {
                 )
             }
             AppCard(Modifier.fillMaxWidth().enterAnim(2)) {
-                Text("Good to know", fontWeight = FontWeight.Bold)
+                Text(tr("Good to know"), fontWeight = FontWeight.Bold)
                 Text(
                     "• Android blocks apps from starting other apps in the background. Allow “Display over other apps” " +
                         "(Settings → Permissions) for instant launches, otherwise you get a tap-to-open notification.\n" +
@@ -74,12 +75,12 @@ fun AboutScreen(onBack: () -> Unit, onOpenDoc: (String) -> Unit) {
                 )
             }
             AppCard(Modifier.fillMaxWidth().enterAnim(3)) {
-                Text("Read more", fontWeight = FontWeight.Bold)
+                Text(tr("Read more"), fontWeight = FontWeight.Bold)
                 Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { onOpenDoc("android-restrictions") }, modifier = Modifier.fillMaxWidth()) { Text("Limitations") }
-                    OutlinedButton(onClick = { onOpenDoc("rules-of-use") }, modifier = Modifier.fillMaxWidth()) { Text("Rules of use") }
-                    OutlinedButton(onClick = { onOpenDoc("privacy") }, modifier = Modifier.fillMaxWidth()) { Text("Privacy policy") }
-                    OutlinedButton(onClick = { onOpenDoc("disclaimer-license") }, modifier = Modifier.fillMaxWidth()) { Text("Disclaimer & license") }
+                    OutlinedButton(onClick = { onOpenDoc("android-restrictions") }, modifier = Modifier.fillMaxWidth()) { Text(tr("Limitations")) }
+                    OutlinedButton(onClick = { onOpenDoc("rules-of-use") }, modifier = Modifier.fillMaxWidth()) { Text(tr("Rules of use")) }
+                    OutlinedButton(onClick = { onOpenDoc("privacy") }, modifier = Modifier.fillMaxWidth()) { Text(tr("Privacy policy")) }
+                    OutlinedButton(onClick = { onOpenDoc("disclaimer-license") }, modifier = Modifier.fillMaxWidth()) { Text(tr("Disclaimer & license")) }
                 }
             }
         }

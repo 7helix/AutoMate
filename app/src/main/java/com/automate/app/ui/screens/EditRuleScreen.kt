@@ -13,7 +13,9 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,15 +31,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,6 +53,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -66,18 +72,26 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.automate.app.AppViewModel
+import com.automate.app.data.ActionItem
 import com.automate.app.data.ActionType
 import com.automate.app.data.AppInfo
+import com.automate.app.data.Condition
+import com.automate.app.data.ConditionType
 import com.automate.app.data.Rule
 import com.automate.app.data.Social
+import com.automate.app.data.SystemKeys
 import com.automate.app.data.Templates
 import com.automate.app.data.TriggerType
 import com.automate.app.data.appLabelFor
+import com.automate.app.data.defaultCondition
+import com.automate.app.data.hm
+import com.automate.app.data.intervalText
 import com.automate.app.data.loadLaunchableApps
+import com.automate.app.data.tr
 import com.automate.app.ui.AppCard
 import com.automate.app.ui.SectionTitle
-import com.automate.app.ui.ToastKind
 import com.automate.app.ui.SkeletonList
+import com.automate.app.ui.ToastKind
 import com.automate.app.ui.bouncyClick
 import com.automate.app.ui.enterAnim
 import com.automate.app.ui.rememberHaptics
@@ -85,6 +99,8 @@ import com.automate.app.ui.theme.dialogContainer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.UUID
+
+private data class TimeEdit(val cond: Int, val end: Boolean, val minutes: Int)
 
 private fun initialRule(vm: AppViewModel, id: String): Rule = when {
     id == "new" -> Rule()
@@ -103,6 +119,37 @@ private fun lastLocation(ctx: Context): Location? {
         .maxByOrNull { it.time }
 }
 
+private fun triggerHint(t: TriggerType): Pair<String, String>? = when (t) {
+    TriggerType.REPEAT -> "Intervals under 10 minutes can be delayed while the phone is idle." to "accuracy-and-battery"
+    TriggerType.WIFI_CONNECTED, TriggerType.WIFI_DISCONNECTED ->
+        "Wi-Fi names can only be read with location permission and location services on." to "troubleshooting"
+    TriggerType.BLUETOOTH_CONNECTED, TriggerType.BLUETOOTH_DISCONNECTED ->
+        "Device names need the Nearby devices permission." to "troubleshooting"
+    TriggerType.HEADPHONES_PLUGGED, TriggerType.HEADPHONES_UNPLUGGED ->
+        "Only wired headphones are detected here. Bluetooth headphones use the Bluetooth trigger." to "triggers"
+    TriggerType.SCREEN_ON, TriggerType.SCREEN_OFF, TriggerType.AIRPLANE_ON, TriggerType.AIRPLANE_OFF,
+    TriggerType.POWER_SAVER_ON, TriggerType.POWER_SAVER_OFF ->
+        "This trigger needs the engine to be running (switch it on from Home)." to "triggers"
+    TriggerType.DEVICE_BOOT -> "Some phones block this until you open AutoMate once after a restart." to "keep-alive"
+    TriggerType.LOCATION_ENTER, TriggerType.LOCATION_EXIT ->
+        "Works best with location set to “Allow all the time”." to "location-rules"
+    else -> null
+}
+
+private fun stepHint(a: ActionItem): Pair<String, String>? = when (a.type) {
+    ActionType.LAUNCH_APP, ActionType.OPEN_URL, ActionType.OPEN_SETTINGS, ActionType.OPEN_CAMERA,
+    ActionType.DIAL_NUMBER, ActionType.SMS_DRAFT, ActionType.EMAIL_DRAFT, ActionType.WHATSAPP_CHAT,
+    ActionType.SHARE_TEXT, ActionType.SOCIAL_OPEN ->
+        "Android blocks background launches. Without “Display over other apps” you get a tap-to-open notification." to "android-restrictions"
+    ActionType.RINGER_MODE -> if (a.ringer == 0) "Silent needs Do Not Disturb access." to "android-restrictions" else null
+    ActionType.DND_MODE -> "Changing Do Not Disturb needs Do Not Disturb access." to "android-restrictions"
+    ActionType.SET_BRIGHTNESS -> "Brightness needs the “Modify system settings” permission." to "phone-control"
+    ActionType.SYSTEM_ACTION -> "System buttons need AutoMate's Accessibility service to be switched on." to "phone-control"
+    ActionType.FLASHLIGHT -> "If you switch the flashlight elsewhere, the next toggle can get out of sync." to "actions"
+    ActionType.SPEAK_TEXT -> "Speech uses your phone's text-to-speech voice and the media volume." to "actions"
+    else -> null
+}
+
 @Composable
 fun EditRuleScreen(vm: AppViewModel, id: String, onBack: () -> Unit, onOpenDoc: (String) -> Unit) {
     val ctx = LocalContext.current
@@ -111,16 +158,26 @@ fun EditRuleScreen(vm: AppViewModel, id: String, onBack: () -> Unit, onOpenDoc: 
     val isNew = vm.rules.none { it.id == d.id }
     var latText by remember(id) { mutableStateOf(if (d.lat == 0.0) "" else d.lat.toString()) }
     var lngText by remember(id) { mutableStateOf(if (d.lng == 0.0) "" else d.lng.toString()) }
-    var showTime by remember { mutableStateOf(false) }
-    var showApps by remember { mutableStateOf(false) }
-    val appLabel = remember(d.packageName) {
-        if (d.packageName.isBlank()) "Choose an app…" else appLabelFor(ctx, d.packageName)
+    var timeEdit by remember { mutableStateOf<TimeEdit?>(null) }
+    var pickAppFor by remember { mutableStateOf<Int?>(null) }
+
+    fun setStep(i: Int, a: ActionItem) { d = d.copy(actions = d.actions.toMutableList().also { it[i] = a }) }
+    fun setCond(i: Int, c: Condition) { d = d.copy(conditions = d.conditions.toMutableList().also { it[i] = c }) }
+    fun moveStep(i: Int, delta: Int) {
+        val j = i + delta
+        if (j in d.actions.indices) {
+            val l = d.actions.toMutableList()
+            val tmp = l[i]
+            l[i] = l[j]
+            l[j] = tmp
+            d = d.copy(actions = l)
+        }
     }
 
     fun fillLocation() {
         val l = lastLocation(ctx)
         if (l == null) {
-            vm.toast("No location fix yet — open Maps once, then try again", ToastKind.ERROR)
+            vm.toast("No location fix yet. Open Maps once, then try again.", ToastKind.ERROR)
         } else {
             d = d.copy(lat = l.latitude, lng = l.longitude)
             latText = l.latitude.toString()
@@ -134,22 +191,33 @@ fun EditRuleScreen(vm: AppViewModel, id: String, onBack: () -> Unit, onOpenDoc: 
         if (grants.values.any { it }) fillLocation()
     }
 
-    fun validate(): String? = when {
-        d.name.isBlank() -> "Give your rule a name"
-        d.trigger == TriggerType.TIME && d.days == 0 -> "Pick at least one day"
-        (d.trigger == TriggerType.LOCATION_ENTER || d.trigger == TriggerType.LOCATION_EXIT) &&
-            d.lat == 0.0 && d.lng == 0.0 -> "Set a location first"
-        d.action == ActionType.LAUNCH_APP && d.packageName.isBlank() -> "Choose an app to open"
-        d.action == ActionType.OPEN_URL && d.url.isBlank() -> "Enter a link to open"
-        d.action == ActionType.WHATSAPP_CHAT && d.url.none { it.isDigit() } -> "Enter a phone number with country code"
-        else -> null
+    fun validate(): String? {
+        if (d.name.isBlank()) return "Give your rule a name"
+        if (d.trigger == TriggerType.TIME && d.days == 0) return "Pick at least one day"
+        if ((d.trigger == TriggerType.LOCATION_ENTER || d.trigger == TriggerType.LOCATION_EXIT) && d.lat == 0.0 && d.lng == 0.0) {
+            return "Set a location first"
+        }
+        if (d.conditions.any { it.type == ConditionType.DAYS && it.a == 0 }) return "Pick at least one day in your condition"
+        if (d.conditions.any { it.type == ConditionType.WIFI_NAME && it.text.isBlank() }) return "Enter the Wi-Fi name for your condition"
+        for ((i, a) in d.actions.withIndex()) {
+            val n = i + 1
+            when (a.type) {
+                ActionType.LAUNCH_APP -> if (a.packageName.isBlank()) return "Step $n: choose an app to open"
+                ActionType.OPEN_URL -> if (a.url.isBlank()) return "Step $n: enter a link to open"
+                ActionType.WHATSAPP_CHAT -> if (a.url.none { it.isDigit() }) return "Step $n: enter a phone number with country code"
+                ActionType.DIAL_NUMBER -> if (a.url.isBlank()) return "Step $n: enter a phone number"
+                ActionType.SPEAK_TEXT -> if (a.message.isBlank()) return "Step $n: enter the text to speak"
+                else -> {}
+            }
+        }
+        return null
     }
 
     Column(Modifier.fillMaxSize().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") }
             Text(
-                if (isNew) "New rule" else "Edit rule",
+                if (isNew) tr("New rule") else tr("Edit rule"),
                 style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold
             )
         }
@@ -160,24 +228,50 @@ fun EditRuleScreen(vm: AppViewModel, id: String, onBack: () -> Unit, onOpenDoc: 
         ) {
             OutlinedTextField(
                 value = d.name, onValueChange = { d = d.copy(name = it) },
-                label = { Text("Rule name") }, singleLine = true,
+                label = { Text(tr("Rule name")) }, singleLine = true,
                 modifier = Modifier.fillMaxWidth().enterAnim(0)
             )
+            OutlinedTextField(
+                value = d.folder, onValueChange = { d = d.copy(folder = it) },
+                label = { Text(tr("Folder (optional)")) }, singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (vm.folders.isNotEmpty()) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    vm.folders.forEach { f ->
+                        FilterChip(selected = d.folder == f, onClick = { d = d.copy(folder = if (d.folder == f) "" else f) }, label = { Text(f) })
+                    }
+                }
+            }
 
+            // ------------------------------------------------ WHEN
             SectionTitle("When this happens")
             DropdownField(
                 label = "Trigger", items = TriggerType.entries, selected = d.trigger,
-                text = { "${it.emoji}  ${it.label}" }
+                text = { "${it.emoji}  ${tr(it.label)}" }, groupOf = { it.group }
             ) { d = d.copy(trigger = it) }
 
             Column(Modifier.animateContentSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when (d.trigger) {
                     TriggerType.TIME -> {
-                        AppCard(Modifier.fillMaxWidth(), onClick = { showTime = true }) {
-                            Text("Time (tap to change)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("%02d:%02d".format(d.hour, d.minute), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                        AppCard(Modifier.fillMaxWidth(), onClick = { timeEdit = TimeEdit(-1, false, d.hour * 60 + d.minute) }) {
+                            Text(tr("Time (tap to change)"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(hm(d.hour * 60 + d.minute), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                         }
                         DaysRow(d.days) { d = d.copy(days = it) }
+                    }
+                    TriggerType.REPEAT -> AppCard(Modifier.fillMaxWidth()) {
+                        Text(tr("Run every ") + intervalText(d.intervalMin), fontWeight = FontWeight.SemiBold)
+                        Slider(
+                            value = d.intervalMin.toFloat(),
+                            onValueChange = { d = d.copy(intervalMin = ((it / 5f).toInt() * 5).coerceAtLeast(5)) },
+                            valueRange = 5f..720f
+                        )
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(15 to "15 min", 30 to "30 min", 60 to "1 hour", 120 to "2 hours", 360 to "6 hours").forEach { (v, s) ->
+                                FilterChip(selected = d.intervalMin == v, onClick = { tap(); d = d.copy(intervalMin = v) }, label = { Text(s) })
+                            }
+                        }
                     }
                     TriggerType.BATTERY_LOW -> AppCard(Modifier.fillMaxWidth()) {
                         Text("Run when battery is at or below ${d.threshold}%")
@@ -190,13 +284,13 @@ fun EditRuleScreen(vm: AppViewModel, id: String, onBack: () -> Unit, onOpenDoc: 
                     TriggerType.WIFI_CONNECTED, TriggerType.WIFI_DISCONNECTED ->
                         OutlinedTextField(
                             value = d.filter, onValueChange = { d = d.copy(filter = it) },
-                            label = { Text("Wi-Fi name (empty = any network)") }, singleLine = true,
+                            label = { Text(tr("Wi-Fi name (empty = any network)")) }, singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                     TriggerType.BLUETOOTH_CONNECTED, TriggerType.BLUETOOTH_DISCONNECTED ->
                         OutlinedTextField(
                             value = d.filter, onValueChange = { d = d.copy(filter = it) },
-                            label = { Text("Device name (empty = any device)") }, singleLine = true,
+                            label = { Text(tr("Device name (empty = any device)")) }, singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                     TriggerType.LOCATION_ENTER, TriggerType.LOCATION_EXIT -> {
@@ -204,14 +298,14 @@ fun EditRuleScreen(vm: AppViewModel, id: String, onBack: () -> Unit, onOpenDoc: 
                             OutlinedTextField(
                                 value = latText,
                                 onValueChange = { latText = it; it.toDoubleOrNull()?.let { v -> d = d.copy(lat = v) } },
-                                label = { Text("Latitude") }, singleLine = true,
+                                label = { Text(tr("Latitude")) }, singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 modifier = Modifier.weight(1f)
                             )
                             OutlinedTextField(
                                 value = lngText,
                                 onValueChange = { lngText = it; it.toDoubleOrNull()?.let { v -> d = d.copy(lng = v) } },
-                                label = { Text("Longitude") }, singleLine = true,
+                                label = { Text(tr("Longitude")) }, singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 modifier = Modifier.weight(1f)
                             )
@@ -225,7 +319,7 @@ fun EditRuleScreen(vm: AppViewModel, id: String, onBack: () -> Unit, onOpenDoc: 
                         ) {
                             Icon(Icons.Rounded.LocationOn, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text("Use my current location")
+                            Text(tr("Use my current location"))
                         }
                         AppCard(Modifier.fillMaxWidth()) {
                             Text("Radius: ${d.radius} m")
@@ -235,88 +329,60 @@ fun EditRuleScreen(vm: AppViewModel, id: String, onBack: () -> Unit, onOpenDoc: 
                                 valueRange = 50f..1000f
                             )
                         }
-                        Hint("Works best with location set to “Allow all the time”.", "location-rules", onOpenDoc)
                     }
-                    else -> Text("No extra settings needed.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    else -> Text(tr("No extra settings needed."), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            triggerHint(d.trigger)?.let { (text, doc) -> Hint(text, doc, onOpenDoc) }
+
+            // ------------------------------------------------ CONDITIONS
+            SectionTitle("Only if these are true (optional)")
+            d.conditions.forEachIndexed { i, c ->
+                ConditionCard(
+                    c = c,
+                    onChange = { setCond(i, it) },
+                    onDelete = { d = d.copy(conditions = d.conditions.filterIndexed { j, _ -> j != i }) },
+                    onPickTime = { end -> timeEdit = TimeEdit(i, end, if (end) c.b else c.a) }
+                )
+            }
+            if (d.conditions.size >= 2) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = d.matchAll, onClick = { d = d.copy(matchAll = true) }, label = { Text(tr("All must be true")) })
+                    FilterChip(selected = !d.matchAll, onClick = { d = d.copy(matchAll = false) }, label = { Text(tr("Any can be true")) })
+                }
+            }
+            if (d.conditions.size < 8) {
+                OutlinedButton(
+                    onClick = { tap(); d = d.copy(conditions = d.conditions + defaultCondition(ConditionType.TIME_BETWEEN)) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Rounded.Add, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(tr("Add condition"))
                 }
             }
 
-            when (d.trigger) {
-                TriggerType.WIFI_CONNECTED, TriggerType.WIFI_DISCONNECTED ->
-                    Hint("Wi-Fi names can only be read with location permission and location services on.", "troubleshooting", onOpenDoc)
-                TriggerType.BLUETOOTH_CONNECTED, TriggerType.BLUETOOTH_DISCONNECTED ->
-                    Hint("Device names need the Nearby devices permission.", "troubleshooting", onOpenDoc)
-                else -> {}
-            }
-
+            // ------------------------------------------------ THEN
             SectionTitle("Then do this")
-            DropdownField(
-                label = "Action", items = ActionType.entries, selected = d.action,
-                text = { "${it.emoji}  ${it.label}" }
-            ) { d = d.copy(action = it) }
-
-            Column(Modifier.animateContentSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                when (d.action) {
-                    ActionType.NOTIFICATION, ActionType.TOAST, ActionType.SHARE_TEXT, ActionType.COPY_TEXT ->
-                        OutlinedTextField(
-                            value = d.message, onValueChange = { d = d.copy(message = it) },
-                            label = { Text("Message") }, modifier = Modifier.fillMaxWidth()
-                        )
-                    ActionType.SOCIAL_OPEN -> {
-                        DropdownField(
-                            label = "Platform", items = Social.all,
-                            selected = Social.find(d.social) ?: Social.all[0],
-                            text = { "${it.emoji}  ${it.label}" }
-                        ) { d = d.copy(social = it.key) }
-                        OutlinedTextField(
-                            value = d.url, onValueChange = { d = d.copy(url = it) },
-                            label = { Text("Username or link (optional)") }, singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    ActionType.WHATSAPP_CHAT -> {
-                        OutlinedTextField(
-                            value = d.url, onValueChange = { d = d.copy(url = it) },
-                            label = { Text("Phone with country code, e.g. 15551234567") }, singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        OutlinedTextField(
-                            value = d.message, onValueChange = { d = d.copy(message = it) },
-                            label = { Text("Message to prefill") }, modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    ActionType.LAUNCH_APP ->
-                        AppCard(Modifier.fillMaxWidth(), onClick = { showApps = true }) {
-                            Text("App (tap to choose)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(appLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        }
-                    ActionType.OPEN_URL ->
-                        OutlinedTextField(
-                            value = d.url, onValueChange = { d = d.copy(url = it) },
-                            label = { Text("Link, e.g. example.com") }, singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    ActionType.RINGER_MODE ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(0 to "Silent", 1 to "Vibrate", 2 to "Normal").forEach { (v, s) ->
-                                FilterChip(selected = d.ringer == v, onClick = { tap(); d = d.copy(ringer = v) }, label = { Text(s) })
-                            }
-                        }
-                    else -> Text("No extra settings needed.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+            d.actions.forEachIndexed { i, a ->
+                StepCard(
+                    index = i, total = d.actions.size, a = a,
+                    onChange = { setStep(i, it) },
+                    onUp = { moveStep(i, -1) }, onDown = { moveStep(i, 1) },
+                    onDelete = { if (d.actions.size > 1) d = d.copy(actions = d.actions.filterIndexed { j, _ -> j != i }) },
+                    onPickApp = { pickAppFor = i },
+                    ruleName = d.name, onOpenDoc = onOpenDoc
+                )
             }
-            when (d.action) {
-                ActionType.LAUNCH_APP, ActionType.OPEN_URL ->
-                    Hint("Android blocks background launches. Without “Display over other apps” you get a tap-to-open notification.", "android-restrictions", onOpenDoc)
-                ActionType.RINGER_MODE ->
-                    if (d.ringer == 0) Hint("Silent needs Do Not Disturb access.", "android-restrictions", onOpenDoc)
-                ActionType.SOCIAL_OPEN, ActionType.SHARE_TEXT, ActionType.WHATSAPP_CHAT ->
-                    Hint("Android can open the app or share sheet, but you still tap Post or Send yourself.", "social-limits", onOpenDoc)
-                ActionType.FLASHLIGHT ->
-                    Hint("If you switch the flashlight elsewhere, the next toggle can get out of sync.", "actions", onOpenDoc)
-                else -> {}
+            if (d.actions.size < 10) {
+                OutlinedButton(
+                    onClick = { tap(); d = d.copy(actions = d.actions + ActionItem()) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Rounded.Add, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(tr("Add step"))
+                }
             }
             Spacer(Modifier.height(8.dp))
         }
@@ -328,7 +394,7 @@ fun EditRuleScreen(vm: AppViewModel, id: String, onBack: () -> Unit, onOpenDoc: 
                     if (err != null) vm.toast(err, ToastKind.ERROR) else { tap(); vm.runNow(d) }
                 },
                 modifier = Modifier.weight(1f)
-            ) { Text("Test action") }
+            ) { Text(tr("Test action")) }
             Button(
                 onClick = {
                     val err = validate()
@@ -336,43 +402,247 @@ fun EditRuleScreen(vm: AppViewModel, id: String, onBack: () -> Unit, onOpenDoc: 
                     else { tap(); vm.saveRule(d.copy(name = d.name.trim())); onBack() }
                 },
                 modifier = Modifier.weight(1f)
-            ) { Text("Save rule") }
+            ) { Text(tr("Save rule")) }
         }
     }
 
-    if (showTime) {
-        TimeDialog(d.hour, d.minute, onDismiss = { showTime = false }) { h, m ->
-            d = d.copy(hour = h, minute = m); showTime = false
+    timeEdit?.let { te ->
+        TimeDialog(te.minutes / 60, te.minutes % 60, onDismiss = { timeEdit = null }) { h, m ->
+            val mins = h * 60 + m
+            if (te.cond < 0) d = d.copy(hour = h, minute = m)
+            else {
+                val c = d.conditions[te.cond]
+                setCond(te.cond, if (te.end) c.copy(b = mins) else c.copy(a = mins))
+            }
+            timeEdit = null
         }
     }
-    if (showApps) {
-        AppPickerDialog(onDismiss = { showApps = false }) { a ->
-            d = d.copy(packageName = a.pkg); showApps = false
+    pickAppFor?.let { idx ->
+        AppPickerDialog(onDismiss = { pickAppFor = null }) { a ->
+            if (idx in d.actions.indices) setStep(idx, d.actions[idx].copy(packageName = a.pkg))
+            pickAppFor = null
+        }
+    }
+}
+
+@Composable
+private fun StepCard(
+    index: Int, total: Int, a: ActionItem,
+    onChange: (ActionItem) -> Unit, onUp: () -> Unit, onDown: () -> Unit, onDelete: () -> Unit,
+    onPickApp: () -> Unit, ruleName: String, onOpenDoc: (String) -> Unit
+) {
+    val ctx = LocalContext.current
+    AppCard(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(tr("Step") + " ${index + 1}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+            if (index > 0) IconButton(onClick = onUp) { Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = "Move up") }
+            if (index < total - 1) IconButton(onClick = onDown) { Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "Move down") }
+            if (total > 1) IconButton(onClick = onDelete) { Icon(Icons.Rounded.Delete, contentDescription = "Remove step") }
+        }
+        DropdownField(
+            label = "Action", items = ActionType.entries.sortedBy { it.group.ordinal }, selected = a.type,
+            text = { "${it.emoji}  ${tr(it.label)}" }, groupOf = { tr(it.group.label) }
+        ) { t ->
+            onChange(
+                a.copy(
+                    type = t,
+                    sysAction = when (t) {
+                        ActionType.OPEN_SETTINGS -> "main"
+                        ActionType.SYSTEM_ACTION -> "home"
+                        else -> a.sysAction
+                    }
+                )
+            )
+        }
+        Column(Modifier.animateContentSize().padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            when (a.type) {
+                ActionType.NOTIFICATION, ActionType.TOAST, ActionType.SPEAK_TEXT, ActionType.COPY_TEXT, ActionType.SHARE_TEXT ->
+                    OutlinedTextField(
+                        value = a.message, onValueChange = { onChange(a.copy(message = it)) },
+                        label = { Text(tr("Message")) }, modifier = Modifier.fillMaxWidth()
+                    )
+                ActionType.DIAL_NUMBER ->
+                    OutlinedTextField(
+                        value = a.url, onValueChange = { onChange(a.copy(url = it)) },
+                        label = { Text(tr("Phone number")) }, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth()
+                    )
+                ActionType.SMS_DRAFT, ActionType.WHATSAPP_CHAT -> {
+                    OutlinedTextField(
+                        value = a.url, onValueChange = { onChange(a.copy(url = it)) },
+                        label = { Text(if (a.type == ActionType.WHATSAPP_CHAT) "Phone with country code, e.g. 15551234567" else "Phone number") },
+                        singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = a.message, onValueChange = { onChange(a.copy(message = it)) },
+                        label = { Text(tr("Message")) }, modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                ActionType.EMAIL_DRAFT -> {
+                    OutlinedTextField(
+                        value = a.url, onValueChange = { onChange(a.copy(url = it)) },
+                        label = { Text(tr("Email address (optional)")) }, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = a.message, onValueChange = { onChange(a.copy(message = it)) },
+                        label = { Text(tr("Message")) }, modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                ActionType.SOCIAL_OPEN -> {
+                    DropdownField(
+                        label = "Platform", items = Social.all, selected = Social.find(a.social) ?: Social.all[0],
+                        text = { "${it.emoji}  ${it.label}" }
+                    ) { onChange(a.copy(social = it.key)) }
+                    OutlinedTextField(
+                        value = a.url, onValueChange = { onChange(a.copy(url = it)) },
+                        label = { Text(tr("Username or link (optional)")) }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                ActionType.LAUNCH_APP ->
+                    OutlinedButton(onClick = onPickApp, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (a.packageName.isBlank()) tr("Choose an app") + "…" else appLabelFor(ctx, a.packageName))
+                    }
+                ActionType.OPEN_URL ->
+                    OutlinedTextField(
+                        value = a.url, onValueChange = { onChange(a.copy(url = it)) },
+                        label = { Text(tr("Link, e.g. example.com")) }, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth()
+                    )
+                ActionType.RINGER_MODE ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(0 to "Silent", 1 to "Vibrate", 2 to "Normal").forEach { (v, s) ->
+                            FilterChip(selected = a.ringer == v, onClick = { onChange(a.copy(ringer = v)) }, label = { Text(s) })
+                        }
+                    }
+                ActionType.DND_MODE ->
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(0 to "Block all", 1 to "Priority only", 2 to "Off").forEach { (v, s) ->
+                            FilterChip(selected = a.ringer == v, onClick = { onChange(a.copy(ringer = v)) }, label = { Text(s) })
+                        }
+                    }
+                ActionType.SET_VOLUME -> {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(0 to "Media", 1 to "Ring", 2 to "Alarm", 3 to "Alerts").forEach { (v, s) ->
+                            FilterChip(selected = a.stream == v, onClick = { onChange(a.copy(stream = v)) }, label = { Text(s) })
+                        }
+                    }
+                    Text("Volume: ${a.level}%")
+                    Slider(value = a.level.toFloat(), onValueChange = { onChange(a.copy(level = it.toInt())) }, valueRange = 0f..100f)
+                }
+                ActionType.SET_BRIGHTNESS -> {
+                    Text("Brightness: ${a.level.coerceAtLeast(1)}%")
+                    Slider(value = a.level.coerceAtLeast(1).toFloat(), onValueChange = { onChange(a.copy(level = it.toInt())) }, valueRange = 1f..100f)
+                }
+                ActionType.SYSTEM_ACTION ->
+                    DropdownField(
+                        label = "Button", items = SystemKeys.actions,
+                        selected = SystemKeys.actions.firstOrNull { it.first == a.sysAction } ?: SystemKeys.actions[0],
+                        text = { tr(it.second) }
+                    ) { onChange(a.copy(sysAction = it.first)) }
+                ActionType.OPEN_SETTINGS ->
+                    DropdownField(
+                        label = "Open a settings page", items = SystemKeys.settings,
+                        selected = SystemKeys.settings.firstOrNull { it.first == a.sysAction } ?: SystemKeys.settings[0],
+                        text = { tr(it.second) }
+                    ) { onChange(a.copy(sysAction = it.first)) }
+                else -> {}
+            }
+            stepHint(a)?.let { (text, doc) -> Hint(text, doc, onOpenDoc) }
+            if (index > 0) {
+                Text(
+                    if (a.delaySec == 0) tr("Run right after the previous step") else tr("Wait") + " ${a.delaySec} s",
+                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Slider(value = a.delaySec.toFloat(), onValueChange = { onChange(a.copy(delaySec = it.toInt())) }, valueRange = 0f..60f)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConditionCard(c: Condition, onChange: (Condition) -> Unit, onDelete: () -> Unit, onPickTime: (Boolean) -> Unit) {
+    AppCard(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) {
+                DropdownField(
+                    label = "Condition", items = ConditionType.entries, selected = c.type,
+                    text = { "${it.emoji}  ${tr(it.label)}" }
+                ) { onChange(defaultCondition(it)) }
+            }
+            IconButton(onClick = onDelete) { Icon(Icons.Rounded.Delete, contentDescription = "Remove condition") }
+        }
+        Column(Modifier.animateContentSize().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            when (c.type) {
+                ConditionType.TIME_BETWEEN ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedButton(onClick = { onPickTime(false) }, modifier = Modifier.weight(1f)) { Text(tr("From") + " " + hm(c.a)) }
+                        OutlinedButton(onClick = { onPickTime(true) }, modifier = Modifier.weight(1f)) { Text(tr("Until") + " " + hm(c.b)) }
+                    }
+                ConditionType.DAYS -> DaysRow(c.a) { onChange(c.copy(a = it)) }
+                ConditionType.BATTERY_ABOVE, ConditionType.BATTERY_BELOW -> {
+                    Text("${c.a}%")
+                    Slider(value = c.a.toFloat(), onValueChange = { onChange(c.copy(a = it.toInt())) }, valueRange = 5f..95f)
+                }
+                ConditionType.WIFI_NAME ->
+                    OutlinedTextField(
+                        value = c.text, onValueChange = { onChange(c.copy(text = it)) },
+                        label = { Text(tr("Wi-Fi name")) }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                    )
+                else -> {}
+            }
         }
     }
 }
 
 @Composable
 private fun Hint(text: String, docId: String, onOpenDoc: (String) -> Unit) {
-    AppCard(Modifier.fillMaxWidth()) {
-        Text("ℹ️  $text", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        TextButton(onClick = { onOpenDoc(docId) }) { Text("Learn more") }
+    Row(
+        Modifier.fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+            .padding(start = 12.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            "ℹ️  " + tr(text), Modifier.weight(1f),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        TextButton(onClick = { onOpenDoc(docId) }) { Text(tr("Learn more")) }
     }
 }
 
 @Composable
-private fun <T> DropdownField(label: String, items: List<T>, selected: T, text: (T) -> String, onSelect: (T) -> Unit) {
+private fun <T> DropdownField(
+    label: String, items: List<T>, selected: T, text: (T) -> String,
+    groupOf: ((T) -> String)? = null, onSelect: (T) -> Unit
+) {
     var open by remember { mutableStateOf(false) }
-    Column {
-        AppCard(Modifier.fillMaxWidth(), onClick = { open = true }) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text(selected), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null)
+    Box {
+        Surface(
+            modifier = Modifier.fillMaxWidth().bouncyClick { open = true },
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+        ) {
+            Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                Text(tr(label), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text(selected), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null)
+                }
             }
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }, modifier = Modifier.background(dialogContainer())) {
+            var last = ""
             items.forEach { item ->
+                val g = groupOf?.invoke(item)
+                if (g != null && g != last) {
+                    last = g
+                    DropdownMenuItem(
+                        text = { Text(tr(g), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium) },
+                        onClick = {}, enabled = false
+                    )
+                }
                 DropdownMenuItem(text = { Text(text(item)) }, onClick = { onSelect(item); open = false })
             }
         }
@@ -380,7 +650,7 @@ private fun <T> DropdownField(label: String, items: List<T>, selected: T, text: 
 }
 
 @Composable
-private fun DaysRow(mask: Int, onChange: (Int) -> Unit) {
+internal fun DaysRow(mask: Int, onChange: (Int) -> Unit) {
     val names = listOf("M", "T", "W", "T", "F", "S", "S")
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         names.forEachIndexed { i, n ->
@@ -410,8 +680,8 @@ private fun TimeDialog(h: Int, m: Int, onDismiss: () -> Unit, onConfirm: (Int, I
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = dialogContainer(),
-        confirmButton = { TextButton(onClick = { onConfirm(st.hour, st.minute) }) { Text("OK") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton(onClick = { onConfirm(st.hour, st.minute) }) { Text(tr("OK")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel")) } },
         text = { TimePicker(state = st) }
     )
 }
@@ -426,14 +696,14 @@ private fun AppPickerDialog(onDismiss: () -> Unit, onPick: (AppInfo) -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = dialogContainer(),
-        title = { Text("Choose an app") },
+        title = { Text(tr("Choose an app")) },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel")) } },
         text = {
             Column {
                 OutlinedTextField(
                     value = q, onValueChange = { q = it }, singleLine = true,
-                    label = { Text("Search") }, modifier = Modifier.fillMaxWidth()
+                    label = { Text(tr("Search")) }, modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(8.dp))
                 val list = apps

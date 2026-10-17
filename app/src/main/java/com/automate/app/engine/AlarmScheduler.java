@@ -4,6 +4,7 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Build;
 
 import com.automate.app.data.Rule;
@@ -15,6 +16,10 @@ import java.util.Calendar;
 public final class AlarmScheduler {
     private AlarmScheduler() {}
 
+    private static SharedPreferences due(Context c) {
+        return c.getSharedPreferences("automate_alarm", Context.MODE_PRIVATE);
+    }
+
     private static PendingIntent pi(Context c, String id) {
         Intent i = new Intent(c, AlarmReceiver.class).setAction("com.automate.app.ALARM").putExtra("id", id);
         return PendingIntent.getBroadcast(c, id.hashCode(), i, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
@@ -23,6 +28,18 @@ public final class AlarmScheduler {
     public static void cancel(Context c, String id) {
         AlarmManager am = c.getSystemService(AlarmManager.class);
         if (am != null) am.cancel(pi(c, id));
+        due(c).edit().remove(id).apply();
+    }
+
+    /** Forget the planned time so the next schedule starts a fresh interval. */
+    public static void resetRepeat(Context c, String id) {
+        due(c).edit().remove(id).apply();
+    }
+
+    /** Called after a repeat rule ran: the next run is one interval from now. */
+    public static void advanceRepeat(Context c, Rule r) {
+        long iv = Math.max(1, r.getIntervalMin()) * 60_000L;
+        due(c).edit().putLong(r.getId(), System.currentTimeMillis() + iv).apply();
     }
 
     public static void rescheduleAll(Context c) {
@@ -31,8 +48,11 @@ public final class AlarmScheduler {
         for (Rule r : RuleStore.load(c)) {
             PendingIntent p = pi(c, r.getId());
             am.cancel(p);
-            if (!r.getEnabled() || r.getTrigger() != TriggerType.TIME) continue;
-            long t = nextTime(r);
+            if (!r.getEnabled()) continue;
+            long t;
+            if (r.getTrigger() == TriggerType.TIME) t = nextTime(r);
+            else if (r.getTrigger() == TriggerType.REPEAT) t = nextRepeat(c, r);
+            else continue;
             if (t < 0) continue;
             try {
                 if (Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms()) {
@@ -44,6 +64,19 @@ public final class AlarmScheduler {
                 am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, t, p);
             }
         }
+    }
+
+    private static long nextRepeat(Context c, Rule r) {
+        long now = System.currentTimeMillis();
+        long iv = Math.max(1, r.getIntervalMin()) * 60_000L;
+        long planned = due(c).getLong(r.getId(), 0L);
+        if (planned == 0L) {
+            planned = now + iv;
+            due(c).edit().putLong(r.getId(), planned).apply();
+        } else if (planned <= now) {
+            planned = now + 3000L; // missed while the phone was off: catch up once
+        }
+        return planned;
     }
 
     /** Next moment this rule should fire, or -1 if no day is selected. days: bit0 = Monday ... bit6 = Sunday. */

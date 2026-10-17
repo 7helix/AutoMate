@@ -11,18 +11,23 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.automate.app.data.AppTheme
+import com.automate.app.data.I18n
+import com.automate.app.data.Lang
 import com.automate.app.data.LogStore
 import com.automate.app.data.Prefs
 import com.automate.app.data.Rule
 import com.automate.app.data.RuleStore
 import com.automate.app.data.ToastStyle
+import com.automate.app.data.TriggerType
+import com.automate.app.data.tr
 import com.automate.app.engine.AlarmScheduler
 import com.automate.app.engine.AutomationService
+import com.automate.app.engine.EngineWidget
 import com.automate.app.engine.RuleEngine
 import com.automate.app.ui.ToastController
 import com.automate.app.ui.ToastKind
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 inline fun <reified T : Enum<T>> enumOr(name: String, def: T): T =
     try { enumValueOf<T>(name) } catch (e: Exception) { def }
@@ -36,6 +41,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var theme by mutableStateOf(enumOr(Prefs.getString(app, Prefs.THEME, ""), AppTheme.MATERIAL_YOU))
         private set
     var toastStyle by mutableStateOf(enumOr(Prefs.getString(app, Prefs.TOAST_STYLE, ""), ToastStyle.IN_APP))
+        private set
+    var language by mutableStateOf(enumOr(Prefs.getString(app, Prefs.LANG, ""), Lang.EN))
         private set
     var animations by mutableStateOf(Prefs.getBool(app, Prefs.ANIMATIONS, true))
         private set
@@ -54,46 +61,63 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var confettiTick by mutableIntStateOf(0)
         private set
 
+    val folders: List<String>
+        get() = rules.map { it.folder }.filter { it.isNotBlank() }.distinct().sorted()
+
     init {
-        // Rules get run counts updated by the background engine; keep UI in sync.
+        I18n.lang = language
+        // Rules get run counts updated by the background engine; keep the UI in sync.
         viewModelScope.launch { LogStore.version.collect { rules = RuleStore.load(ctx) } }
     }
 
     // ---- toasts ----
     fun toast(text: String, kind: ToastKind = ToastKind.INFO) {
-        if (toastStyle != ToastStyle.SYSTEM) toasts.show(text, kind)
-        if (toastStyle != ToastStyle.IN_APP) Toast.makeText(ctx, text, Toast.LENGTH_SHORT).show()
+        val msg = tr(text)
+        if (toastStyle != ToastStyle.SYSTEM) toasts.show(msg, kind)
+        if (toastStyle != ToastStyle.IN_APP) Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
     }
 
     // ---- settings ----
-    fun setTheme(t: AppTheme) { theme = t; Prefs.setString(ctx, Prefs.THEME, t.name) }
-    fun setToastStyle(s: ToastStyle) { toastStyle = s; Prefs.setString(ctx, Prefs.TOAST_STYLE, s.name) }
-    fun setAnimations(v: Boolean) { animations = v; Prefs.setBool(ctx, Prefs.ANIMATIONS, v) }
-    fun setHaptics(v: Boolean) { haptics = v; Prefs.setBool(ctx, Prefs.HAPTICS, v) }
-    fun setRunOnBoot(v: Boolean) { runOnBoot = v; Prefs.setBool(ctx, Prefs.RUN_ON_BOOT, v) }
+    fun changeTheme(t: AppTheme) { theme = t; Prefs.setString(ctx, Prefs.THEME, t.name) }
+    fun changeToastStyle(s: ToastStyle) { toastStyle = s; Prefs.setString(ctx, Prefs.TOAST_STYLE, s.name) }
+    fun changeLanguage(l: Lang) { language = l; I18n.lang = l; Prefs.setString(ctx, Prefs.LANG, l.name) }
+    fun changeAnimations(v: Boolean) { animations = v; Prefs.setBool(ctx, Prefs.ANIMATIONS, v) }
+    fun changeHaptics(v: Boolean) { haptics = v; Prefs.setBool(ctx, Prefs.HAPTICS, v) }
+    fun changeRunOnBoot(v: Boolean) { runOnBoot = v; Prefs.setBool(ctx, Prefs.RUN_ON_BOOT, v) }
     fun updateName(n: String) { userName = n; Prefs.setString(ctx, Prefs.NAME, n) }
+    fun updateProjectLink(s: String) { projectLink = s; Prefs.setString(ctx, Prefs.PROJECT_LINK, s) }
+    fun celebrate() { if (animations) confettiTick++ }
     fun finishOnboarding(name: String) {
         if (name.isNotBlank()) updateName(name.trim())
         onboarded = true
         Prefs.setBool(ctx, Prefs.ONBOARDED, true)
         celebrate()
     }
-    fun updateProjectLink(s: String) { projectLink = s; Prefs.setString(ctx, Prefs.PROJECT_LINK, s) }
-    fun celebrate() { if (animations) confettiTick++ }
     fun replayOnboarding() { onboarded = false; Prefs.setBool(ctx, Prefs.ONBOARDED, false) }
 
     // ---- rules ----
-    fun saveRule(r: Rule) {
+    fun saveRule(raw: Rule) {
+        val r = RuleStore.sanitize(raw)
         val list = rules.toMutableList()
         val i = list.indexOfFirst { it.id == r.id }
         if (i >= 0) list[i] = r else list.add(0, r)
+        if (r.trigger == TriggerType.REPEAT) AlarmScheduler.resetRepeat(ctx, r.id)
         commit(list)
         toast(if (i >= 0) "Rule updated" else "Rule created", ToastKind.SUCCESS)
         if (i < 0) celebrate()
     }
 
-    fun toggleRule(id: String, on: Boolean) =
+    fun toggleRule(id: String, on: Boolean) {
+        if (on) AlarmScheduler.resetRepeat(ctx, id)
         commit(rules.map { if (it.id == id) it.copy(enabled = on) else it })
+    }
+
+    fun duplicateRule(id: String) {
+        val r = rules.firstOrNull { it.id == id } ?: return
+        val copy = r.copy(id = UUID.randomUUID().toString(), name = (r.name.ifBlank { "Rule" } + " (copy)").take(120), lastRun = 0L, runCount = 0)
+        commit(listOf(copy) + rules)
+        toast("Rule duplicated", ToastKind.SUCCESS)
+    }
 
     fun deleteRule(id: String) {
         AlarmScheduler.cancel(ctx, id)
@@ -110,14 +134,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun clearLogs() { LogStore.clear(ctx); toast("Activity log cleared", ToastKind.INFO) }
 
     fun runNow(r: Rule) {
-        viewModelScope.launch(Dispatchers.Default) { RuleEngine.fire(ctx, r, "Manual test") }
-        toast("Ran “${r.name.ifBlank { "rule" }}” — see Logs", ToastKind.INFO)
+        RuleEngine.fireManual(ctx, RuleStore.sanitize(r), "Manual test")
+        toast("Ran “${r.name.ifBlank { "rule" }}”. See Activity for the result.", ToastKind.INFO)
+    }
+
+    // ---- backup ----
+    fun exportJson(): String = RuleStore.exportJson(rules)
+
+    /** Returns how many rules were imported. */
+    fun importRules(imported: List<Rule>, replace: Boolean): Int {
+        if (replace) rules.forEach { AlarmScheduler.cancel(ctx, it.id) }
+        commit(if (replace) imported else imported + rules)
+        toast("Imported ${imported.size} rules", ToastKind.SUCCESS)
+        return imported.size
     }
 
     private fun commit(list: List<Rule>) {
         rules = list
         RuleStore.save(ctx, list)
         AlarmScheduler.rescheduleAll(ctx)
+        EngineWidget.refresh(ctx)
         pingService()
     }
 

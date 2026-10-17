@@ -6,17 +6,25 @@ import android.content.Intent;
 
 import com.automate.app.data.Rule;
 import com.automate.app.data.RuleStore;
+import com.automate.app.data.TriggerType;
 
 public class AlarmReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
+        final Context app = context.getApplicationContext();
         String id = intent.getStringExtra("id");
-        if (id != null) {
-            Rule r = RuleStore.find(context, id);
-            if (r != null && r.getEnabled()) {
-                RuleEngine.fire(context, r, "Scheduled time reached");
-            }
+        final Rule rule = id != null ? RuleStore.find(app, id) : null;
+        final PendingResult pr = goAsync();
+        if (rule != null && rule.getEnabled()) {
+            boolean repeat = rule.getTrigger() == TriggerType.REPEAT;
+            RuleEngine.fire(app, rule, repeat ? "Repeat interval reached" : "Scheduled time reached", () -> {
+                if (rule.getTrigger() == TriggerType.REPEAT) AlarmScheduler.advanceRepeat(app, rule);
+                AlarmScheduler.rescheduleAll(app); // plan the next occurrence
+                pr.finish();
+            });
+        } else {
+            AlarmScheduler.rescheduleAll(app);
+            pr.finish();
         }
-        AlarmScheduler.rescheduleAll(context); // plan the next occurrence
     }
 }

@@ -24,5 +24,17 @@ Allow **Display over other apps**, otherwise AutoMate shows a notification you m
 ## Silent mode fails
 Allow **Do Not Disturb access** in Settings > Permissions.
 
+## A rule is skipped
+If the Activity log says "skipped", one of the rule's conditions was not met at that moment. Open the rule and review the "Only if" section.
+
+## Repeat rule runs late
+Android may delay alarms when the phone is idle, especially under 10 minutes. Allow Exact alarms and set battery to Unrestricted.
+
+## System button does nothing
+Turn on AutoMate in Android Accessibility settings. Open Home > Phone control to check the status and test each button.
+
+## Brightness does not change
+Allow "Modify system settings" for AutoMate in Settings > Permissions.
+
 ## Still stuck?
 Open an issue on GitHub with your Android version, phone model and the Activity log lines.

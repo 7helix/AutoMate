@@ -23,6 +23,11 @@ By using AutoMate you agree to these rules.
 ## Changes
 These rules may change in future versions. The current version is always in the app under Learn.
 
+## Phone control rules
+- Do not use the Accessibility service or system actions to interfere with other people's devices, or to hide activity from a device owner.
+- Do not create rules that lock, silence or dim a device in ways that could put someone at risk, such as while driving or when emergency alerts must be heard.
+- Keep emergency calling and emergency alerts available at all times.
+
 ## Social media rules
 - Do not use AutoMate to spam, run bots, fake engagement or mass-message people.
 - Do not use it to pressure, harass or impersonate anyone.

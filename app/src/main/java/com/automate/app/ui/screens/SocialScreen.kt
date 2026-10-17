@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -27,12 +28,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.automate.app.AppViewModel
+import com.automate.app.data.tr
 import com.automate.app.data.Docs
 import com.automate.app.data.Social
 import com.automate.app.data.SocialPlatform
 import com.automate.app.data.Templates
 import com.automate.app.data.shareText
 import com.automate.app.ui.AppCard
+import com.automate.app.ui.BackBar
 import com.automate.app.ui.SectionTitle
 import com.automate.app.ui.ToastKind
 import com.automate.app.ui.enterAnim
@@ -40,7 +43,7 @@ import com.automate.app.ui.popIn
 import com.automate.app.ui.rememberHaptics
 
 @Composable
-fun SocialScreen(vm: AppViewModel, onEdit: (String) -> Unit, onOpenDoc: (String) -> Unit) {
+fun SocialScreen(vm: AppViewModel, onEdit: (String) -> Unit, onOpenDoc: (String) -> Unit, onBack: () -> Unit) {
     val ctx = LocalContext.current
     val tap = rememberHaptics(vm)
 
@@ -54,13 +57,16 @@ fun SocialScreen(vm: AppViewModel, onEdit: (String) -> Unit, onOpenDoc: (String)
     val shareMsg = "I'm automating my phone with AutoMate ⚡ “when this happens, do that” rules, fully offline." +
         if (vm.projectLink.isNotBlank()) "\n${vm.projectLink}" else ""
 
+    Column(Modifier.fillMaxSize()) {
+    BackBar(onBack)
     LazyColumn(
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 24.dp),
+        modifier = Modifier.weight(1f),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
             Column(Modifier.enterAnim(0)) {
-                Text("Social hub", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text(tr("Social hub"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                 Text(
                     "Jump into your apps, share AutoMate and automate your posting routine.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -70,17 +76,17 @@ fun SocialScreen(vm: AppViewModel, onEdit: (String) -> Unit, onOpenDoc: (String)
 
         item {
             AppCard(Modifier.fillMaxWidth().enterAnim(1)) {
-                Text("Share AutoMate", fontWeight = FontWeight.Bold)
+                Text(tr("Share AutoMate"), fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = vm.projectLink, onValueChange = { vm.updateProjectLink(it) },
-                    label = { Text("Project link (optional)") }, singleLine = true,
+                    label = { Text(tr("Project link (optional)")) }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(onClick = { tap(); shareText(ctx, "AutoMate", shareMsg) }) { Text("Share app") }
+                    Button(onClick = { tap(); shareText(ctx, "AutoMate", shareMsg) }) { Text(tr("Share app")) }
                     OutlinedButton(
                         enabled = vm.projectLink.isNotBlank(),
                         onClick = {
@@ -89,7 +95,7 @@ fun SocialScreen(vm: AppViewModel, onEdit: (String) -> Unit, onOpenDoc: (String)
                                 ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(l)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                             }
                         }
-                    ) { Text("Open page") }
+                    ) { Text(tr("Open page")) }
                 }
             }
         }
@@ -110,8 +116,9 @@ fun SocialScreen(vm: AppViewModel, onEdit: (String) -> Unit, onOpenDoc: (String)
         }
 
         item { SectionTitle("Social recipes") }
-        itemsIndexed(Templates.social) { i, t ->
-            AppCard(Modifier.fillMaxWidth().enterAnim(i), onClick = { tap(); onEdit("tpl${Templates.basic.size + i}") }) {
+        itemsIndexed(Templates.socialIndexed) { i, iv ->
+            val t = iv.value
+            AppCard(Modifier.fillMaxWidth().enterAnim(i), onClick = { tap(); onEdit("tpl${iv.index}") }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(t.emoji, fontSize = 30.sp)
                     Spacer(Modifier.height(0.dp))
@@ -138,5 +145,6 @@ fun SocialScreen(vm: AppViewModel, onEdit: (String) -> Unit, onOpenDoc: (String)
                 }
             }
         }
+    }
     }
 }

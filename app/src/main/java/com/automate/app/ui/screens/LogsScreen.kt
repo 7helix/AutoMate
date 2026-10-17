@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.automate.app.AppViewModel
+import com.automate.app.data.tr
 import com.automate.app.data.LogEntry
 import com.automate.app.data.LogStore
 import com.automate.app.ui.AppCard
@@ -51,10 +52,10 @@ fun LogsScreen(vm: AppViewModel) {
         item {
             Row(Modifier.fillMaxWidth().enterAnim(0), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Activity", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Text(tr("Activity"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                     Text("${logs.size} recent runs", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (logs.isNotEmpty()) TextButton(onClick = { confirm = true }) { Text("Clear") }
+                if (logs.isNotEmpty()) TextButton(onClick = { confirm = true }) { Text(tr("Clear")) }
             }
         }
         if (logs.isEmpty()) {

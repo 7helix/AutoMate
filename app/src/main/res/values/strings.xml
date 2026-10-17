@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">AutoMate</string>
+    <string name="a11y_description">AutoMate uses this service only to press system buttons (Home, Back, Recents, lock screen and similar) when one of your rules asks it to. It does not read your screen or what you type.</string>
+    <string name="widget_description">Start or stop the AutoMate engine from your home screen.</string>
 </resources>

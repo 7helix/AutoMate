@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.automate.app.data.DocCategory
+import com.automate.app.data.tr
 import com.automate.app.data.Docs
 import com.automate.app.ui.AppCard
 import com.automate.app.ui.EmptyState
@@ -50,7 +51,7 @@ fun LearnScreen(onOpen: (String) -> Unit) {
     ) {
         item {
             Column(Modifier.enterAnim(0)) {
-                Text("Learn", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text(tr("Learn"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                 Text(
                     "${Docs.all.size} articles: guides, limitations and rules.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -60,7 +61,7 @@ fun LearnScreen(onOpen: (String) -> Unit) {
         item {
             OutlinedTextField(
                 value = q, onValueChange = { q = it }, singleLine = true,
-                label = { Text("Search articles") },
+                label = { Text(tr("Search articles")) },
                 modifier = Modifier.fillMaxWidth().enterAnim(1)
             )
         }
@@ -69,7 +70,7 @@ fun LearnScreen(onOpen: (String) -> Unit) {
                 Modifier.horizontalScroll(rememberScrollState()).enterAnim(2),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                FilterChip(selected = cat == null, onClick = { cat = null }, label = { Text("All") })
+                FilterChip(selected = cat == null, onClick = { cat = null }, label = { Text(tr("All")) })
                 DocCategory.entries.forEach { c ->
                     FilterChip(selected = cat == c, onClick = { cat = c }, label = { Text("${c.emoji} ${c.label}") })
                 }

@@ -6,14 +6,12 @@ These are common requests that AutoMate does **not** do today.
 - Turning Wi-Fi, Bluetooth, mobile data or airplane mode on or off by itself.
 - Taking over the screen, tapping buttons or typing for you.
 
-## Not built yet
-- Combining several triggers or conditions in one rule (AND / OR).
-- Several actions in one rule.
+## Not built yet (these items are planned for later versions)
+- Several triggers in one rule (conditions and multiple steps are available).
 - Sending SMS, making calls or reading notifications from other apps.
-- Backup and restore of rules to a file.
-- Widgets and quick settings tiles.
-- Variables, delays and loops.
-- Languages other than English.
+- Quick settings tiles and a rule-specific widget.
+- Variables and loops.
+- Languages other than English and Hindi, and Hindi articles.
 
 ## Not planned
 - Cloud accounts or sync. AutoMate stays offline.

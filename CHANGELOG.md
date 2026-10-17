@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.0
+- **Conditions**: "only if" checks (time window, weekdays, battery, charging, Wi-Fi, airplane mode, screen, Do Not Disturb).
+- **Multiple steps** per rule with reordering and waits.
+- 10 new triggers: repeat interval, screen on/off, airplane mode on/off, wired headphones plugged/unplugged, battery saver on/off, phone starts up.
+- 11 new actions: speak text, volume, brightness, Do Not Disturb, system buttons (optional Accessibility service), settings pages, notification sound, camera, dialer, text message draft, email draft.
+- New pages: Gallery (24 recipes), Stats, Phone control, Backup & restore, What's new.
+- Home-screen widget, folders, search and filters, duplicate rule.
+- Hindi language for menus, buttons and main screens.
+- Rules from earlier versions are upgraded automatically. Imports are validated and sanitised.
+
 ## 1.2.0
 - **Social hub**: one-tap shortcuts for 14 social apps, share AutoMate, 5 social recipes.
 - 4 new actions: open social app/profile, share sheet with text, WhatsApp chat with text, copy to clipboard.

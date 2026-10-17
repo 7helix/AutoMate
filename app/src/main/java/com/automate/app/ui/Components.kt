@@ -63,6 +63,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.automate.app.AppViewModel
+import com.automate.app.data.tr
 import com.automate.app.ui.theme.LocalAnimationsOn
 import com.automate.app.ui.theme.dialogContainer
 import kotlinx.coroutines.delay
@@ -121,7 +122,7 @@ fun AppCard(
 @Composable
 fun SectionTitle(text: String) {
     Text(
-        text.uppercase(),
+        tr(text).uppercase(),
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.primary,
@@ -140,10 +141,10 @@ fun EmptyState(emoji: String, title: String, subtitle: String) {
     Column(Modifier.fillMaxWidth().padding(vertical = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(emoji, fontSize = 64.sp, modifier = Modifier.graphicsLayer { translationY = y })
         Spacer(Modifier.height(12.dp))
-        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(tr(title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
         Text(
-            subtitle, textAlign = TextAlign.Center,
+            tr(subtitle), textAlign = TextAlign.Center,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -207,9 +208,9 @@ fun ConfirmDialog(title: String, text: String, confirm: String, onConfirm: () ->
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = dialogContainer(),
-        title = { Text(title) },
-        text = { Text(text) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(confirm, color = MaterialTheme.colorScheme.error) } },
+        title = { Text(tr(title)) },
+        text = { Text(tr(text)) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(tr(confirm), color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }

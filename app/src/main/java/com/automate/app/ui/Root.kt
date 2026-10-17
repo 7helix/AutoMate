@@ -61,7 +61,12 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.navArgument
 import com.automate.app.AppViewModel
+import com.automate.app.data.tr
 import com.automate.app.ui.screens.AboutScreen
+import com.automate.app.ui.screens.BackupScreen
+import com.automate.app.ui.screens.ControlScreen
+import com.automate.app.ui.screens.GalleryScreen
+import com.automate.app.ui.screens.StatsScreen
 import com.automate.app.ui.screens.EditRuleScreen
 import com.automate.app.ui.screens.DocScreen
 import com.automate.app.ui.screens.HomeScreen
@@ -107,8 +112,8 @@ private fun SplashOverlay() {
             modifier = Modifier.graphicsLayer { scaleX = scale.value; scaleY = scale.value }
         ) {
             Icon(Icons.Rounded.Bolt, contentDescription = null, tint = Color.White, modifier = Modifier.size(96.dp))
-            Text("AutoMate", color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Bold)
-            Text("Automate anything, anywhere", color = Color.White.copy(alpha = 0.85f))
+            Text(tr("AutoMate"), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+            Text(tr("Automate anything, anywhere"), color = Color.White.copy(alpha = 0.85f))
         }
     }
 }
@@ -170,7 +175,7 @@ private fun MainScaffold(vm: AppViewModel) {
                                 )
                                 Icon(t.icon, contentDescription = t.label, modifier = Modifier.graphicsLayer { scaleX = sc; scaleY = sc })
                             },
-                            label = { Text(t.label) }
+                            label = { Text(tr(t.label)) }
                         )
                     }
                 }
@@ -190,7 +195,7 @@ private fun MainScaffold(vm: AppViewModel) {
             composable("rules") { RulesScreen(vm, onEdit = { nav.navigate("edit/$it") }) }
             composable("logs") { LogsScreen(vm) }
             composable("learn") { LearnScreen(onOpen = { nav.navigate("doc/$it") }) }
-            composable("settings") { SettingsScreen(vm, onAbout = { nav.navigate("about") }, onOpenDoc = { nav.navigate("doc/$it") }) }
+            composable("settings") { SettingsScreen(vm, onAbout = { nav.navigate("about") }, onOpenDoc = { nav.navigate("doc/$it") }, onGo = { nav.navigate(it) }) }
             composable(
                 "doc/{id}",
                 arguments = listOf(navArgument("id") { type = NavType.StringType }),
@@ -207,8 +212,20 @@ private fun MainScaffold(vm: AppViewModel) {
             ) { e ->
                 EditRuleScreen(vm, e.arguments?.getString("id") ?: "new", onBack = { nav.popBackStack() }, onOpenDoc = { nav.navigate("doc/$it") })
             }
+            composable("stats", enterTransition = { up }, popExitTransition = { down }) {
+                StatsScreen(vm, onBack = { nav.popBackStack() })
+            }
+            composable("gallery", enterTransition = { up }, popExitTransition = { down }) {
+                GalleryScreen(vm, onEdit = { nav.navigate("edit/$it") }, onBack = { nav.popBackStack() })
+            }
+            composable("backup", enterTransition = { up }, popExitTransition = { down }) {
+                BackupScreen(vm, onBack = { nav.popBackStack() }, onOpenDoc = { nav.navigate("doc/$it") })
+            }
+            composable("control", enterTransition = { up }, popExitTransition = { down }) {
+                ControlScreen(vm, onBack = { nav.popBackStack() }, onOpenDoc = { nav.navigate("doc/$it") })
+            }
             composable("social", enterTransition = { up }, popExitTransition = { down }) {
-                SocialScreen(vm, onEdit = { nav.navigate("edit/$it") }, onOpenDoc = { nav.navigate("doc/$it") })
+                SocialScreen(vm, onEdit = { nav.navigate("edit/$it") }, onOpenDoc = { nav.navigate("doc/$it") }, onBack = { nav.popBackStack() })
             }
             composable("about", enterTransition = { up }, popExitTransition = { down }) { AboutScreen(onBack = { nav.popBackStack() }, onOpenDoc = { nav.navigate("doc/$it") }) }
         }

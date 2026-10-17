@@ -28,3 +28,13 @@ AutoMate remembers the torch state itself. If you switch the flashlight with ano
 - **Copy text to clipboard**: copies your text so you can paste it anywhere.
 
 These actions open apps, so the same background launch rules apply. See the Social media limits article.
+
+## Sound, display and phone control (version 1.3)
+- **Speak text aloud**: uses your phone's text-to-speech voice.
+- **Set a volume level**: media, ring, alarm or alerts, from 0 to 100%.
+- **Set screen brightness**: needs "Modify system settings".
+- **Change Do Not Disturb**: block all, priority only, or off. Needs Do Not Disturb access.
+- **Play a notification sound**.
+- **Open the camera** or **a settings page**.
+- **Press a system button**: needs the Accessibility service. See Phone control.
+- **Open dialer, start a text message, start an email**: the app opens with your text ready. You press send.

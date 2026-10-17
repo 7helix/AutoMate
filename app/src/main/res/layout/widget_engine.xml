@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="14dp">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚡ AutoMate"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/w_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Engine stopped"
+            android:textColor="#E6E0FF"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/w_sub"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0 active rules"
+            android:textColor="#B9B0E6"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/w_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/widget_btn_start"
+        android:gravity="center"
+        android:paddingStart="20dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="10dp"
+        android:text="Start"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+</LinearLayout>

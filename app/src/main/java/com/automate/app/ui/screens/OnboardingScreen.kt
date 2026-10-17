@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.automate.app.AppViewModel
+import com.automate.app.data.tr
 import kotlinx.coroutines.launch
 
 @Composable
@@ -57,7 +58,7 @@ fun OnboardingScreen(vm: AppViewModel) {
 
     Column(Modifier.fillMaxSize().systemBarsPadding().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = { vm.finishOnboarding(name) }) { Text("Skip") }
+            TextButton(onClick = { vm.finishOnboarding(name) }) { Text(tr("Skip")) }
         }
 
         HorizontalPager(state = pager, modifier = Modifier.weight(1f)) { p ->
@@ -74,10 +75,10 @@ fun OnboardingScreen(vm: AppViewModel) {
             ) {
                 Text(pages[p].first, fontSize = 88.sp, modifier = Modifier.graphicsLayer { translationY = y })
                 Spacer(Modifier.height(24.dp))
-                Text(pages[p].second, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                Text(tr(pages[p].second), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    pages[p].third, textAlign = TextAlign.Center,
+                    tr(pages[p].third), textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -85,7 +86,7 @@ fun OnboardingScreen(vm: AppViewModel) {
                     Spacer(Modifier.height(20.dp))
                     OutlinedTextField(
                         value = name, onValueChange = { name = it }, singleLine = true,
-                        label = { Text("Your name (optional)") }, modifier = Modifier.fillMaxWidth()
+                        label = { Text(tr("Your name (optional)")) }, modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(Modifier.height(10.dp))
                     Text(

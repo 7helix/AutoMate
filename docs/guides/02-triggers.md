@@ -11,6 +11,16 @@ A trigger is the **When** part of a rule.
 - **Arrive at / Leave a place**: a saved latitude, longitude and radius.
 - **Phone unlocked**: fires each time you unlock the screen.
 
+## More triggers (version 1.3)
+- **Repeat at an interval**: every 5 minutes up to 12 hours. Pair it with conditions such as a time window.
+- **Screen turns on / off**: fires every time the screen changes state.
+- **Airplane mode turned on / off**.
+- **Wired headphones plugged in / unplugged**: Bluetooth headphones use the Bluetooth trigger.
+- **Battery saver turns on / off**.
+- **Phone starts up**: runs after a restart.
+
+Event triggers need the engine to be running. Time and repeat rules work without it.
+
 ## Name filters
 Filters are not case sensitive but must match the whole name, so `Home WiFi` will not match `Home WiFi 5G`.
 

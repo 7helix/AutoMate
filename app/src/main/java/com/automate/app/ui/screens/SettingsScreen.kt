@@ -55,6 +55,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.automate.app.AppViewModel
 import com.automate.app.data.AppTheme
+import com.automate.app.data.Lang
+import com.automate.app.data.isAccessibilityEnabled
+import com.automate.app.data.tr
 import com.automate.app.data.ToastStyle
 import com.automate.app.ui.AppCard
 import com.automate.app.ui.ConfirmDialog
@@ -65,7 +68,7 @@ import com.automate.app.ui.enterAnim
 import com.automate.app.ui.rememberHaptics
 
 @Composable
-fun SettingsScreen(vm: AppViewModel, onAbout: () -> Unit, onOpenDoc: (String) -> Unit) {
+fun SettingsScreen(vm: AppViewModel, onAbout: () -> Unit, onOpenDoc: (String) -> Unit, onGo: (String) -> Unit) {
     val tap = rememberHaptics(vm)
     var confirm by remember { mutableStateOf<String?>(null) }
 
@@ -73,42 +76,58 @@ fun SettingsScreen(vm: AppViewModel, onAbout: () -> Unit, onOpenDoc: (String) ->
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Text("Settings", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
+        item { Text(tr("Settings"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
 
         item {
             AppCard(Modifier.fillMaxWidth().enterAnim(0)) {
-                Text("Your name", fontWeight = FontWeight.SemiBold)
+                Text(tr("Your name"), fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.padding(top = 8.dp))
                 OutlinedTextField(
                     value = vm.userName, onValueChange = { vm.updateName(it) },
-                    singleLine = true, label = { Text("What should I call you?") },
+                    singleLine = true, label = { Text(tr("What should I call you?")) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         }
 
+        item { SectionTitle("Language") }
+        item {
+            AppCard(Modifier.fillMaxWidth()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Lang.entries.forEach { l ->
+                        FilterChip(selected = vm.language == l, onClick = { tap(); vm.changeLanguage(l) }, label = { Text(l.label) })
+                    }
+                }
+                Spacer(Modifier.padding(top = 8.dp))
+                Text(
+                    "Hindi covers menus, buttons and the main screens. Articles stay in English.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         item { SectionTitle("Appearance") }
-        items(AppTheme.entries) { t -> ThemeCard(t, vm.theme == t) { tap(); vm.setTheme(t) } }
-        item { SettingSwitch("Animations", "Smooth transitions, pulses and effects", vm.animations) { vm.setAnimations(it) } }
-        item { SettingSwitch("Haptic feedback", "Light taps on buttons and switches", vm.haptics) { vm.setHaptics(it) } }
+        items(AppTheme.entries) { t -> ThemeCard(t, vm.theme == t) { tap(); vm.changeTheme(t) } }
+        item { SettingSwitch("Animations", "Smooth transitions, pulses and effects", vm.animations) { vm.changeAnimations(it) } }
+        item { SettingSwitch("Haptic feedback", "Light taps on buttons and switches", vm.haptics) { vm.changeHaptics(it) } }
 
         item { SectionTitle("Toast notifications") }
         item {
             AppCard(Modifier.fillMaxWidth()) {
-                Text("How should quick messages appear?", fontWeight = FontWeight.SemiBold)
+                Text(tr("How should quick messages appear?"), fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.padding(top = 8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ToastStyle.entries.forEach { s ->
-                        FilterChip(selected = vm.toastStyle == s, onClick = { tap(); vm.setToastStyle(s) }, label = { Text(s.label) })
+                        FilterChip(selected = vm.toastStyle == s, onClick = { tap(); vm.changeToastStyle(s) }, label = { Text(tr(s.label)) })
                     }
                 }
                 Spacer(Modifier.padding(top = 8.dp))
-                OutlinedButton(onClick = { vm.toast("This is how toasts look ✨", ToastKind.SUCCESS) }) { Text("Preview toast") }
+                OutlinedButton(onClick = { vm.toast("This is how toasts look ✨", ToastKind.SUCCESS) }) { Text(tr("Preview toast")) }
             }
         }
 
         item { SectionTitle("Automation") }
-        item { SettingSwitch("Start on boot", "Resume the engine after a restart", vm.runOnBoot) { vm.setRunOnBoot(it) } }
+        item { SettingSwitch("Start on boot", "Resume the engine after a restart", vm.runOnBoot) { vm.changeRunOnBoot(it) } }
 
         item { SectionTitle("Permissions") }
         item { PermissionCenter() }
@@ -117,24 +136,34 @@ fun SettingsScreen(vm: AppViewModel, onAbout: () -> Unit, onOpenDoc: (String) ->
         item {
             AppCard(Modifier.fillMaxWidth()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { confirm = "rules" }) { Text("Delete all rules") }
-                    OutlinedButton(onClick = { confirm = "logs" }) { Text("Clear activity") }
+                    OutlinedButton(onClick = { confirm = "rules" }) { Text(tr("Delete all rules")) }
+                    OutlinedButton(onClick = { confirm = "logs" }) { Text(tr("Clear activity")) }
                 }
                 Spacer(Modifier.padding(top = 8.dp))
-                OutlinedButton(onClick = { vm.replayOnboarding() }) { Text("Replay welcome tour") }
+                OutlinedButton(onClick = { vm.replayOnboarding() }) { Text(tr("Replay welcome tour")) }
+            }
+        }
+
+        item { SectionTitle("Tools") }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { onGo("control") }, modifier = Modifier.fillMaxWidth()) { Text(tr("🎛️  ") + tr("Phone control")) }
+                OutlinedButton(onClick = { onGo("backup") }, modifier = Modifier.fillMaxWidth()) { Text(tr("💾  ") + tr("Backup & restore")) }
+                OutlinedButton(onClick = { onGo("stats") }, modifier = Modifier.fillMaxWidth()) { Text(tr("📊  ") + tr("Statistics")) }
+                OutlinedButton(onClick = { onOpenDoc("whats-new") }, modifier = Modifier.fillMaxWidth()) { Text(tr("✨  ") + tr("What's new")) }
             }
         }
 
         item { SectionTitle("Help & policies") }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { onOpenDoc("android-restrictions") }, modifier = Modifier.fillMaxWidth()) { Text("🚧  Limitations") }
-                OutlinedButton(onClick = { onOpenDoc("rules-of-use") }, modifier = Modifier.fillMaxWidth()) { Text("⚖️  Rules of use") }
-                OutlinedButton(onClick = { onOpenDoc("privacy") }, modifier = Modifier.fillMaxWidth()) { Text("🛡️  Privacy") }
+                OutlinedButton(onClick = { onOpenDoc("android-restrictions") }, modifier = Modifier.fillMaxWidth()) { Text(tr("🚧  Limitations")) }
+                OutlinedButton(onClick = { onOpenDoc("rules-of-use") }, modifier = Modifier.fillMaxWidth()) { Text(tr("⚖️  Rules of use")) }
+                OutlinedButton(onClick = { onOpenDoc("privacy") }, modifier = Modifier.fillMaxWidth()) { Text(tr("🛡️  Privacy")) }
             }
         }
         item {
-            Button(onClick = onAbout, modifier = Modifier.fillMaxWidth()) { Text("About AutoMate") }
+            Button(onClick = onAbout, modifier = Modifier.fillMaxWidth()) { Text(tr("About AutoMate")) }
         }
     }
 
@@ -182,8 +211,8 @@ private fun ThemeCard(t: AppTheme, selected: Boolean, onClick: () -> Unit) {
             Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(44.dp).background(Brush.linearGradient(colors), RoundedCornerShape(14.dp)))
                 Spacer(Modifier.width(14.dp))
-                Text(t.label, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                if (selected) Text("✓", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                Text(tr(t.label), Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                if (selected) Text(tr("✓"), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -242,7 +271,11 @@ private fun PermissionCenter() {
             PermItem("Unrestricted battery", "Stops the system from pausing the engine",
                 pm.isIgnoringBatteryOptimizations(ctx.packageName)) { open(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS) },
             PermItem("Do Not Disturb access", "Needed for the “silent” ringer action",
-                nm.isNotificationPolicyAccessGranted) { open(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS, withPkg = false) }
+                nm.isNotificationPolicyAccessGranted) { open(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS, withPkg = false) },
+            PermItem("Modify system settings", "Needed to change screen brightness",
+                Settings.System.canWrite(ctx)) { open(Settings.ACTION_MANAGE_WRITE_SETTINGS) },
+            PermItem("Accessibility service", "Lets rules press Home, Back, lock screen and more",
+                isAccessibilityEnabled(ctx)) { open(Settings.ACTION_ACCESSIBILITY_SETTINGS, withPkg = false) }
         )
     }
 
@@ -251,11 +284,11 @@ private fun PermissionCenter() {
             AppCard(Modifier.fillMaxWidth()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(p.title, fontWeight = FontWeight.SemiBold)
-                        Text(p.desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(tr(p.title), fontWeight = FontWeight.SemiBold)
+                        Text(tr(p.desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    if (p.granted) Text("Allowed ✓", color = Color(0xFF2ECC71), fontWeight = FontWeight.Bold)
-                    else Button(onClick = p.action) { Text("Allow") }
+                    if (p.granted) Text(tr("Allowed ✓"), color = Color(0xFF2ECC71), fontWeight = FontWeight.Bold)
+                    else Button(onClick = p.action) { Text(tr("Allow")) }
                 }
             }
         }
