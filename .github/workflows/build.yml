@@ -28,8 +28,19 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # The runner already ships the Android SDK. We only make sure licenses are accepted
+      # and the needed platform is present (no setup-android action: its "tools" install fails).
+      - name: Prepare Android SDK
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platforms;android-34" "build-tools;34.0.0" > /dev/null || true
+
+      - name: Check docs referenced by the app exist
+        run: |
+          grep -o '"[a-z]*/[0-9a-z-]*\.md"' app/src/main/java/com/automate/app/data/Docs.kt | tr -d '"' | while read -r f; do
+            test -f "docs/$f" || { echo "Missing docs/$f"; exit 1; }
+          done
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
