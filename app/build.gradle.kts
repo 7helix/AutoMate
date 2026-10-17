@@ -11,8 +11,8 @@ android {
         applicationId = "com.automate.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 3
+        versionName = "1.2.0"
     }
 
     buildTypes {
@@ -28,6 +28,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+
+    // The repo-level docs/ folder is packaged as assets, so GitHub docs and in-app articles are one source.
+    sourceSets.getByName("main").assets.srcDirs("../docs")
 
     buildFeatures { compose = true }
     composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }

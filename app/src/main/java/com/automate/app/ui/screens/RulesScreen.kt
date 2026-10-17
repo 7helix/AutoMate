@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -39,12 +40,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.automate.app.AppViewModel
 import com.automate.app.data.Rule
+import com.automate.app.data.shareText
 import com.automate.app.data.thenText
 import com.automate.app.data.whenText
 import com.automate.app.ui.AppCard
@@ -129,6 +132,7 @@ fun RulesScreen(vm: AppViewModel, onEdit: (String) -> Unit) {
 @Composable
 private fun RuleCard(r: Rule, index: Int, vm: AppViewModel, onEdit: () -> Unit, onDelete: () -> Unit) {
     val tap = rememberHaptics(vm)
+    val ctx = LocalContext.current
     AppCard(Modifier.fillMaxWidth().enterAnim(index + 2), onClick = onEdit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -164,6 +168,14 @@ private fun RuleCard(r: Rule, index: Int, vm: AppViewModel, onEdit: () -> Unit, 
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f)
             )
+            IconButton(onClick = {
+                tap()
+                shareText(
+                    ctx, "My AutoMate rule",
+                    "🤖 ${r.name.ifBlank { "My rule" }}\nWhen: ${r.whenText()}\nThen: ${r.thenText()}\n\nMade with AutoMate ⚡" +
+                        if (vm.projectLink.isNotBlank()) "\n${vm.projectLink}" else ""
+                )
+            }) { Icon(Icons.Rounded.Share, contentDescription = "Share rule") }
             IconButton(onClick = { tap(); vm.runNow(r) }) { Icon(Icons.Rounded.PlayArrow, contentDescription = "Run now") }
             IconButton(onClick = onDelete) { Icon(Icons.Rounded.Delete, contentDescription = "Delete") }
         }

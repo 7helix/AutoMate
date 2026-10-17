@@ -24,6 +24,7 @@ object Prefs {
     const val ONBOARDED = "onboarded"
     const val RUN_ON_BOOT = "run_on_boot"
     const val SERVICE_ENABLED = "service_enabled"
+    const val PROJECT_LINK = "project_link"
 
     private fun sp(c: Context) = c.getSharedPreferences("automate_settings", Context.MODE_PRIVATE)
 

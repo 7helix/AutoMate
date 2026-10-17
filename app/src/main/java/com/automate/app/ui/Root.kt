@@ -4,7 +4,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -60,11 +63,14 @@ import androidx.navigation.navArgument
 import com.automate.app.AppViewModel
 import com.automate.app.ui.screens.AboutScreen
 import com.automate.app.ui.screens.EditRuleScreen
+import com.automate.app.ui.screens.DocScreen
 import com.automate.app.ui.screens.HomeScreen
+import com.automate.app.ui.screens.LearnScreen
 import com.automate.app.ui.screens.LogsScreen
 import com.automate.app.ui.screens.OnboardingScreen
 import com.automate.app.ui.screens.RulesScreen
 import com.automate.app.ui.screens.SettingsScreen
+import com.automate.app.ui.screens.SocialScreen
 import com.automate.app.ui.theme.AppBackground
 import kotlinx.coroutines.delay
 
@@ -82,6 +88,7 @@ fun AutoMateRoot(vm: AppViewModel) {
 
     AppBackground {
         if (!vm.onboarded) OnboardingScreen(vm) else MainScaffold(vm)
+        ConfettiOverlay(vm.confettiTick)
         ToastHost(vm.toasts, Modifier.align(Alignment.TopCenter))
         AnimatedVisibility(
             visible = splash,
@@ -117,6 +124,7 @@ private fun MainScaffold(vm: AppViewModel) {
         NavTab("home", "Home", Icons.Rounded.Home),
         NavTab("rules", "Rules", Icons.Rounded.AutoAwesome),
         NavTab("logs", "Activity", Icons.Rounded.History),
+        NavTab("learn", "Learn", Icons.Rounded.MenuBook),
         NavTab("settings", "Settings", Icons.Rounded.Settings)
     )
     val showBar = tabs.any { it.route == route }
@@ -134,6 +142,11 @@ private fun MainScaffold(vm: AppViewModel) {
     val exit: ExitTransition = if (anim) fadeOut(tween(160)) else ExitTransition.None
     val popExit: ExitTransition = if (anim) fadeOut(tween(200)) + slideOutHorizontally(tween(260)) { it / 12 } else ExitTransition.None
 
+    val up: EnterTransition =
+        if (anim) slideInVertically(tween(380, easing = FastOutSlowInEasing)) { it / 5 } + fadeIn(tween(300)) else EnterTransition.None
+    val down: ExitTransition =
+        if (anim) slideOutVertically(tween(300)) { it / 5 } + fadeOut(tween(250)) else ExitTransition.None
+
     Scaffold(
         containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onBackground,
@@ -148,7 +161,15 @@ private fun MainScaffold(vm: AppViewModel) {
                         NavigationBarItem(
                             selected = route == t.route,
                             onClick = { goTab(t.route) },
-                            icon = { Icon(t.icon, contentDescription = t.label) },
+                            icon = {
+                                val sel = route == t.route
+                                val sc by animateFloatAsState(
+                                    if (sel && anim) 1.25f else 1f,
+                                    spring(dampingRatio = Spring.DampingRatioHighBouncy, stiffness = Spring.StiffnessMedium),
+                                    label = "navScale"
+                                )
+                                Icon(t.icon, contentDescription = t.label, modifier = Modifier.graphicsLayer { scaleX = sc; scaleY = sc })
+                            },
                             label = { Text(t.label) }
                         )
                     }
@@ -165,17 +186,31 @@ private fun MainScaffold(vm: AppViewModel) {
             popEnterTransition = { if (anim) fadeIn(tween(240)) else EnterTransition.None },
             popExitTransition = { popExit }
         ) {
-            composable("home") { HomeScreen(vm, onEdit = { nav.navigate("edit/$it") }, onTab = { goTab(it) }) }
+            composable("home") { HomeScreen(vm, onEdit = { nav.navigate("edit/$it") }, onTab = { r -> if (tabs.any { t -> t.route == r }) goTab(r) else nav.navigate(r) }) }
             composable("rules") { RulesScreen(vm, onEdit = { nav.navigate("edit/$it") }) }
             composable("logs") { LogsScreen(vm) }
-            composable("settings") { SettingsScreen(vm, onAbout = { nav.navigate("about") }) }
+            composable("learn") { LearnScreen(onOpen = { nav.navigate("doc/$it") }) }
+            composable("settings") { SettingsScreen(vm, onAbout = { nav.navigate("about") }, onOpenDoc = { nav.navigate("doc/$it") }) }
+            composable(
+                "doc/{id}",
+                arguments = listOf(navArgument("id") { type = NavType.StringType }),
+                enterTransition = { up },
+                popExitTransition = { down }
+            ) { e ->
+                DocScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }, onOpen = { nav.navigate("doc/$it") })
+            }
             composable(
                 "edit/{id}",
-                arguments = listOf(navArgument("id") { type = NavType.StringType })
+                arguments = listOf(navArgument("id") { type = NavType.StringType }),
+                enterTransition = { up },
+                popExitTransition = { down }
             ) { e ->
-                EditRuleScreen(vm, e.arguments?.getString("id") ?: "new", onBack = { nav.popBackStack() })
+                EditRuleScreen(vm, e.arguments?.getString("id") ?: "new", onBack = { nav.popBackStack() }, onOpenDoc = { nav.navigate("doc/$it") })
             }
-            composable("about") { AboutScreen(onBack = { nav.popBackStack() }) }
+            composable("social", enterTransition = { up }, popExitTransition = { down }) {
+                SocialScreen(vm, onEdit = { nav.navigate("edit/$it") }, onOpenDoc = { nav.navigate("doc/$it") })
+            }
+            composable("about", enterTransition = { up }, popExitTransition = { down }) { AboutScreen(onBack = { nav.popBackStack() }, onOpenDoc = { nav.navigate("doc/$it") }) }
         }
     }
 }

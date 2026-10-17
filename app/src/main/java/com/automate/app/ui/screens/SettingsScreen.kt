@@ -65,7 +65,7 @@ import com.automate.app.ui.enterAnim
 import com.automate.app.ui.rememberHaptics
 
 @Composable
-fun SettingsScreen(vm: AppViewModel, onAbout: () -> Unit) {
+fun SettingsScreen(vm: AppViewModel, onAbout: () -> Unit, onOpenDoc: (String) -> Unit) {
     val tap = rememberHaptics(vm)
     var confirm by remember { mutableStateOf<String?>(null) }
 
@@ -125,6 +125,14 @@ fun SettingsScreen(vm: AppViewModel, onAbout: () -> Unit) {
             }
         }
 
+        item { SectionTitle("Help & policies") }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { onOpenDoc("android-restrictions") }, modifier = Modifier.fillMaxWidth()) { Text("🚧  Limitations") }
+                OutlinedButton(onClick = { onOpenDoc("rules-of-use") }, modifier = Modifier.fillMaxWidth()) { Text("⚖️  Rules of use") }
+                OutlinedButton(onClick = { onOpenDoc("privacy") }, modifier = Modifier.fillMaxWidth()) { Text("🛡️  Privacy") }
+            }
+        }
         item {
             Button(onClick = onAbout, modifier = Modifier.fillMaxWidth()) { Text("About AutoMate") }
         }

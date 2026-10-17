@@ -41,7 +41,7 @@ object RuleStore {
         put("hour", r.hour); put("minute", r.minute); put("days", r.days); put("threshold", r.threshold)
         put("filter", r.filter); put("lat", r.lat); put("lng", r.lng); put("radius", r.radius)
         put("action", r.action.name); put("message", r.message); put("pkg", r.packageName)
-        put("url", r.url); put("ringer", r.ringer); put("lastRun", r.lastRun); put("runCount", r.runCount)
+        put("url", r.url); put("social", r.social); put("ringer", r.ringer); put("lastRun", r.lastRun); put("runCount", r.runCount)
     }
 
     private fun fromJson(o: JSONObject): Rule = Rule(
@@ -61,6 +61,7 @@ object RuleStore {
         message = o.optString("message", ""),
         packageName = o.optString("pkg", ""),
         url = o.optString("url", ""),
+        social = o.optString("social", "instagram"),
         ringer = o.optInt("ringer", 1),
         lastRun = o.optLong("lastRun", 0L),
         runCount = o.optInt("runCount", 0)

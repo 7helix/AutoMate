@@ -31,6 +31,7 @@ import com.automate.app.data.LogStore
 import com.automate.app.data.Templates
 import com.automate.app.ui.AnimatedCounter
 import com.automate.app.ui.AppCard
+import com.automate.app.ui.GlowCard
 import com.automate.app.ui.PulsingPower
 import com.automate.app.ui.SectionTitle
 import com.automate.app.ui.enterAnim
@@ -75,7 +76,7 @@ fun HomeScreen(vm: AppViewModel, onEdit: (String) -> Unit, onTab: (String) -> Un
         }
 
         item {
-            AppCard(Modifier.fillMaxWidth().enterAnim(1)) {
+            GlowCard(vm.serviceOn, Modifier.enterAnim(1)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     PulsingPower(on = vm.serviceOn) { tap(); vm.toggleService() }
                     Spacer(Modifier.width(14.dp))
@@ -114,6 +115,40 @@ fun HomeScreen(vm: AppViewModel, onEdit: (String) -> Unit, onTab: (String) -> Un
                         Text(
                             t.subtitle, style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            AppCard(Modifier.fillMaxWidth().enterAnim(4), onClick = { tap(); onTab("social") }) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🌐", fontSize = 30.sp)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Social hub", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Open your apps, share AutoMate, social recipes.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            AppCard(Modifier.fillMaxWidth().enterAnim(4), onClick = { tap(); onTab("learn") }) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("📘", fontSize = 30.sp)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Learn & limitations", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Guides, what Android won't allow, and the rules of use.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }

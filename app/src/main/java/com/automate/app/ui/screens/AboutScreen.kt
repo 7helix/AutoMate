@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -26,7 +27,7 @@ import com.automate.app.ui.AppCard
 import com.automate.app.ui.enterAnim
 
 @Composable
-fun AboutScreen(onBack: () -> Unit) {
+fun AboutScreen(onBack: () -> Unit, onOpenDoc: (String) -> Unit) {
     val ctx = LocalContext.current
     val version = remember { runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: "1.0" }
 
@@ -71,6 +72,15 @@ fun AboutScreen(onBack: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp)
                 )
+            }
+            AppCard(Modifier.fillMaxWidth().enterAnim(3)) {
+                Text("Read more", fontWeight = FontWeight.Bold)
+                Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { onOpenDoc("android-restrictions") }, modifier = Modifier.fillMaxWidth()) { Text("Limitations") }
+                    OutlinedButton(onClick = { onOpenDoc("rules-of-use") }, modifier = Modifier.fillMaxWidth()) { Text("Rules of use") }
+                    OutlinedButton(onClick = { onOpenDoc("privacy") }, modifier = Modifier.fillMaxWidth()) { Text("Privacy policy") }
+                    OutlinedButton(onClick = { onOpenDoc("disclaimer-license") }, modifier = Modifier.fillMaxWidth()) { Text("Disclaimer & license") }
+                }
             }
         }
     }

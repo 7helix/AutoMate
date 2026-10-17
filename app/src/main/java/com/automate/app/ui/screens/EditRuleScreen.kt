@@ -69,6 +69,7 @@ import com.automate.app.AppViewModel
 import com.automate.app.data.ActionType
 import com.automate.app.data.AppInfo
 import com.automate.app.data.Rule
+import com.automate.app.data.Social
 import com.automate.app.data.Templates
 import com.automate.app.data.TriggerType
 import com.automate.app.data.appLabelFor
@@ -76,6 +77,7 @@ import com.automate.app.data.loadLaunchableApps
 import com.automate.app.ui.AppCard
 import com.automate.app.ui.SectionTitle
 import com.automate.app.ui.ToastKind
+import com.automate.app.ui.SkeletonList
 import com.automate.app.ui.bouncyClick
 import com.automate.app.ui.enterAnim
 import com.automate.app.ui.rememberHaptics
@@ -102,7 +104,7 @@ private fun lastLocation(ctx: Context): Location? {
 }
 
 @Composable
-fun EditRuleScreen(vm: AppViewModel, id: String, onBack: () -> Unit) {
+fun EditRuleScreen(vm: AppViewModel, id: String, onBack: () -> Unit, onOpenDoc: (String) -> Unit) {
     val ctx = LocalContext.current
     val tap = rememberHaptics(vm)
     var d by remember(id) { mutableStateOf(initialRule(vm, id)) }
@@ -139,6 +141,7 @@ fun EditRuleScreen(vm: AppViewModel, id: String, onBack: () -> Unit) {
             d.lat == 0.0 && d.lng == 0.0 -> "Set a location first"
         d.action == ActionType.LAUNCH_APP && d.packageName.isBlank() -> "Choose an app to open"
         d.action == ActionType.OPEN_URL && d.url.isBlank() -> "Enter a link to open"
+        d.action == ActionType.WHATSAPP_CHAT && d.url.none { it.isDigit() } -> "Enter a phone number with country code"
         else -> null
     }
 
@@ -232,9 +235,18 @@ fun EditRuleScreen(vm: AppViewModel, id: String, onBack: () -> Unit) {
                                 valueRange = 50f..1000f
                             )
                         }
+                        Hint("Works best with location set to “Allow all the time”.", "location-rules", onOpenDoc)
                     }
                     else -> Text("No extra settings needed.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
+
+            when (d.trigger) {
+                TriggerType.WIFI_CONNECTED, TriggerType.WIFI_DISCONNECTED ->
+                    Hint("Wi-Fi names can only be read with location permission and location services on.", "troubleshooting", onOpenDoc)
+                TriggerType.BLUETOOTH_CONNECTED, TriggerType.BLUETOOTH_DISCONNECTED ->
+                    Hint("Device names need the Nearby devices permission.", "troubleshooting", onOpenDoc)
+                else -> {}
             }
 
             SectionTitle("Then do this")
@@ -245,11 +257,35 @@ fun EditRuleScreen(vm: AppViewModel, id: String, onBack: () -> Unit) {
 
             Column(Modifier.animateContentSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when (d.action) {
-                    ActionType.NOTIFICATION, ActionType.TOAST ->
+                    ActionType.NOTIFICATION, ActionType.TOAST, ActionType.SHARE_TEXT, ActionType.COPY_TEXT ->
                         OutlinedTextField(
                             value = d.message, onValueChange = { d = d.copy(message = it) },
                             label = { Text("Message") }, modifier = Modifier.fillMaxWidth()
                         )
+                    ActionType.SOCIAL_OPEN -> {
+                        DropdownField(
+                            label = "Platform", items = Social.all,
+                            selected = Social.find(d.social) ?: Social.all[0],
+                            text = { "${it.emoji}  ${it.label}" }
+                        ) { d = d.copy(social = it.key) }
+                        OutlinedTextField(
+                            value = d.url, onValueChange = { d = d.copy(url = it) },
+                            label = { Text("Username or link (optional)") }, singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    ActionType.WHATSAPP_CHAT -> {
+                        OutlinedTextField(
+                            value = d.url, onValueChange = { d = d.copy(url = it) },
+                            label = { Text("Phone with country code, e.g. 15551234567") }, singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = d.message, onValueChange = { d = d.copy(message = it) },
+                            label = { Text("Message to prefill") }, modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                     ActionType.LAUNCH_APP ->
                         AppCard(Modifier.fillMaxWidth(), onClick = { showApps = true }) {
                             Text("App (tap to choose)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -270,6 +306,17 @@ fun EditRuleScreen(vm: AppViewModel, id: String, onBack: () -> Unit) {
                         }
                     else -> Text("No extra settings needed.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
+            when (d.action) {
+                ActionType.LAUNCH_APP, ActionType.OPEN_URL ->
+                    Hint("Android blocks background launches. Without “Display over other apps” you get a tap-to-open notification.", "android-restrictions", onOpenDoc)
+                ActionType.RINGER_MODE ->
+                    if (d.ringer == 0) Hint("Silent needs Do Not Disturb access.", "android-restrictions", onOpenDoc)
+                ActionType.SOCIAL_OPEN, ActionType.SHARE_TEXT, ActionType.WHATSAPP_CHAT ->
+                    Hint("Android can open the app or share sheet, but you still tap Post or Send yourself.", "social-limits", onOpenDoc)
+                ActionType.FLASHLIGHT ->
+                    Hint("If you switch the flashlight elsewhere, the next toggle can get out of sync.", "actions", onOpenDoc)
+                else -> {}
             }
             Spacer(Modifier.height(8.dp))
         }
@@ -302,6 +349,14 @@ fun EditRuleScreen(vm: AppViewModel, id: String, onBack: () -> Unit) {
         AppPickerDialog(onDismiss = { showApps = false }) { a ->
             d = d.copy(packageName = a.pkg); showApps = false
         }
+    }
+}
+
+@Composable
+private fun Hint(text: String, docId: String, onOpenDoc: (String) -> Unit) {
+    AppCard(Modifier.fillMaxWidth()) {
+        Text("ℹ️  $text", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        TextButton(onClick = { onOpenDoc(docId) }) { Text("Learn more") }
     }
 }
 
@@ -383,7 +438,7 @@ private fun AppPickerDialog(onDismiss: () -> Unit, onPick: (AppInfo) -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 val list = apps
                 if (list == null) {
-                    CircularProgressIndicator()
+                    SkeletonList()
                 } else {
                     LazyColumn(Modifier.heightIn(max = 360.dp)) {
                         items(list.filter { it.label.contains(q, ignoreCase = true) }, key = { it.pkg }) { a ->

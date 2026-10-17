@@ -87,6 +87,12 @@ fun OnboardingScreen(vm: AppViewModel) {
                         value = name, onValueChange = { name = it }, singleLine = true,
                         label = { Text("Your name (optional)") }, modifier = Modifier.fillMaxWidth()
                     )
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "By continuing you agree to the Rules of use (Learn → Rules & policies).",
+                        style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }

@@ -1,6 +1,7 @@
 package com.automate.app.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
@@ -26,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -75,6 +77,8 @@ private fun ToastPill(m: ToastMsg) {
         ToastKind.INFO -> Color(0xFF3B5BDB) to "💡"
         ToastKind.ERROR -> Color(0xFFD64545) to "⚠️"
     }
+    val pop = remember(m.id) { Animatable(0.3f) }
+    LaunchedEffect(m.id) { pop.animateTo(1f, spring(dampingRatio = Spring.DampingRatioHighBouncy)) }
     Surface(
         shape = RoundedCornerShape(50),
         color = bg,
@@ -82,7 +86,7 @@ private fun ToastPill(m: ToastMsg) {
         modifier = Modifier.padding(horizontal = 20.dp)
     ) {
         Row(Modifier.padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(icon, fontSize = 16.sp)
+            Text(icon, fontSize = 16.sp, modifier = Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value })
             Spacer(Modifier.width(10.dp))
             Text(m.text, color = Color.White, fontWeight = FontWeight.Medium, fontSize = 14.sp, maxLines = 2)
         }

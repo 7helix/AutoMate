@@ -1,6 +1,8 @@
 package com.automate.app.engine;
 
 import android.app.PendingIntent;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.camera2.CameraCharacteristics;
@@ -17,6 +19,8 @@ import android.provider.Settings;
 import android.widget.Toast;
 
 import com.automate.app.data.Rule;
+import com.automate.app.data.Social;
+import com.automate.app.data.SocialPlatform;
 
 public final class ActionRunner {
     /** Set by MainActivity so we can start activities directly while the app is on screen. */
@@ -63,6 +67,27 @@ public final class ActionRunner {
                         ? Settings.Panel.ACTION_INTERNET_CONNECTIVITY
                         : Settings.ACTION_WIFI_SETTINGS);
                 return launch(app, i, "Opened Wi-Fi panel");
+            }
+            case SOCIAL_OPEN: {
+                SocialPlatform p = Social.find(r.getSocial());
+                if (p == null) throw new IllegalStateException("Choose a social platform");
+                return launch(app, Social.buildIntent(app, p, r.getUrl()), "Opened " + p.getLabel());
+            }
+            case SHARE_TEXT: {
+                String t = msg.isEmpty() ? r.getName() : msg;
+                Intent send = new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t);
+                return launch(app, Intent.createChooser(send, "Share via"), "Opened share sheet");
+            }
+            case WHATSAPP_CHAT: {
+                if (r.getUrl().replaceAll("[^0-9]", "").isEmpty()) {
+                    throw new IllegalStateException("Enter a phone number with country code");
+                }
+                return launch(app, Social.whatsAppIntent(app, r.getUrl(), msg), "Opened WhatsApp chat (you press send)");
+            }
+            case COPY_TEXT: {
+                ClipboardManager cm = (ClipboardManager) app.getSystemService(Context.CLIPBOARD_SERVICE);
+                cm.setPrimaryClip(ClipData.newPlainText("AutoMate", msg.isEmpty() ? r.getName() : msg));
+                return "Copied text";
             }
             default:
                 throw new IllegalStateException("Unknown action");

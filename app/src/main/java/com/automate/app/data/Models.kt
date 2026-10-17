@@ -24,7 +24,11 @@ enum class ActionType(val label: String, val emoji: String) {
     VIBRATE("Vibrate the phone", "📳"),
     FLASHLIGHT("Toggle flashlight", "🔦"),
     RINGER_MODE("Change ringer mode", "🔊"),
-    OPEN_WIFI_PANEL("Open Wi-Fi panel", "🛜")
+    OPEN_WIFI_PANEL("Open Wi-Fi panel", "🛜"),
+    SOCIAL_OPEN("Open a social app or profile", "🌐"),
+    SHARE_TEXT("Open share sheet with text", "📤"),
+    WHATSAPP_CHAT("Open WhatsApp chat with text", "🟢"),
+    COPY_TEXT("Copy text to clipboard", "📋")
 }
 
 /** days: bit0 = Monday ... bit6 = Sunday. ringer: 0 silent, 1 vibrate, 2 normal. */
@@ -45,6 +49,7 @@ data class Rule(
     val message: String = "",
     val packageName: String = "",
     val url: String = "",
+    val social: String = "instagram",
     val ringer: Int = 1,
     val lastRun: Long = 0L,
     val runCount: Int = 0
@@ -81,12 +86,16 @@ fun Rule.thenText(): String = when (action) {
     ActionType.FLASHLIGHT -> "Toggle flashlight"
     ActionType.RINGER_MODE -> "Set ringer to " + when (ringer) { 0 -> "silent"; 1 -> "vibrate"; else -> "normal" }
     ActionType.OPEN_WIFI_PANEL -> "Open Wi-Fi panel"
+    ActionType.SOCIAL_OPEN -> "Open " + (Social.find(social)?.label ?: "social app") + if (url.isBlank()) "" else " ($url)"
+    ActionType.SHARE_TEXT -> "Share: " + message.ifBlank { name.ifBlank { "(text)" } }
+    ActionType.WHATSAPP_CHAT -> "WhatsApp chat " + url.ifBlank { "(number needed)" }
+    ActionType.COPY_TEXT -> "Copy: " + message.ifBlank { name.ifBlank { "(text)" } }
 }
 
 data class Template(val title: String, val subtitle: String, val emoji: String, val rule: Rule)
 
 object Templates {
-    val all = listOf(
+    val basic = listOf(
         Template("Low battery alert", "Warn me at 15%", "🪫",
             Rule(name = "Low battery alert", trigger = TriggerType.BATTERY_LOW, threshold = 15,
                 action = ActionType.NOTIFICATION, message = "Battery is low — plug in soon 🔋")),
@@ -106,4 +115,24 @@ object Templates {
             Rule(name = "Wind down", trigger = TriggerType.TIME, hour = 22, minute = 30,
                 action = ActionType.NOTIFICATION, message = "Time to wind down 🌙"))
     )
+
+    val social = listOf(
+        Template("Post reminder", "6 pm nudge to create", "📸",
+            Rule(name = "Post reminder", trigger = TriggerType.TIME, hour = 18, minute = 0,
+                action = ActionType.NOTIFICATION, message = "Time to post something! 📸")),
+        Template("Stream time", "Open Twitch at 8 pm", "🎮",
+            Rule(name = "Stream time", trigger = TriggerType.TIME, hour = 20, minute = 0,
+                action = ActionType.SOCIAL_OPEN, social = "twitch")),
+        Template("Good morning text", "WhatsApp chat ready", "🟢",
+            Rule(name = "Good morning text", trigger = TriggerType.TIME, hour = 8, minute = 0,
+                action = ActionType.WHATSAPP_CHAT, message = "Good morning! ☀️")),
+        Template("Share my day", "Share sheet at 9 pm", "📤",
+            Rule(name = "Share my day", trigger = TriggerType.TIME, hour = 21, minute = 0,
+                action = ActionType.SHARE_TEXT, message = "My day in one line: ")),
+        Template("Caption saver", "Copy a caption on charge", "📋",
+            Rule(name = "Caption saver", trigger = TriggerType.CHARGER_CONNECTED,
+                action = ActionType.COPY_TEXT, message = "Your caption here ✨ #automate"))
+    )
+
+    val all = basic + social
 }

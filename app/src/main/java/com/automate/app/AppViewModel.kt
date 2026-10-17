@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
@@ -48,6 +49,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var serviceOn by mutableStateOf(Prefs.getBool(app, Prefs.SERVICE_ENABLED, false))
         private set
+    var projectLink by mutableStateOf(Prefs.getString(app, Prefs.PROJECT_LINK, ""))
+        private set
+    var confettiTick by mutableIntStateOf(0)
+        private set
 
     init {
         // Rules get run counts updated by the background engine; keep UI in sync.
@@ -71,7 +76,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (name.isNotBlank()) updateName(name.trim())
         onboarded = true
         Prefs.setBool(ctx, Prefs.ONBOARDED, true)
+        celebrate()
     }
+    fun updateProjectLink(s: String) { projectLink = s; Prefs.setString(ctx, Prefs.PROJECT_LINK, s) }
+    fun celebrate() { if (animations) confettiTick++ }
     fun replayOnboarding() { onboarded = false; Prefs.setBool(ctx, Prefs.ONBOARDED, false) }
 
     // ---- rules ----
@@ -81,6 +89,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (i >= 0) list[i] = r else list.add(0, r)
         commit(list)
         toast(if (i >= 0) "Rule updated" else "Rule created", ToastKind.SUCCESS)
+        if (i < 0) celebrate()
     }
 
     fun toggleRule(id: String, on: Boolean) =
@@ -129,6 +138,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             serviceOn = on
             Prefs.setBool(ctx, Prefs.SERVICE_ENABLED, on)
             toast(if (on) "Automation engine started ⚡" else "Engine stopped", if (on) ToastKind.SUCCESS else ToastKind.INFO)
+            if (on) celebrate()
         } catch (e: Exception) {
             toast("Couldn't change the engine: ${e.message}", ToastKind.ERROR)
         }
